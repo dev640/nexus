@@ -23,7 +23,7 @@ export function Login() {
   }
 
   function handleAdminLogin() {
-    if (email !== 'dev' || password !== 'ruhi') {
+    if (email !== 'dev' || password !== 'Shdev_admin') {
       setError('Invalid admin credentials.')
       return
     }
@@ -35,6 +35,11 @@ export function Login() {
   return (
     <div className="grid min-h-screen grid-cols-1 bg-white md:grid-cols-2">
       <div className="flex flex-col justify-center bg-ink px-6 py-10 text-white sm:px-16 sm:py-12">
+        <img
+          src="/logo-wordmark.png"
+          alt="Nexus"
+          className="mb-10 h-8 w-auto self-start brightness-0 invert"
+        />
         <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
           BUILD BETTER.
           <br />
@@ -51,6 +56,8 @@ export function Login() {
       </div>
       <div className="flex flex-col justify-center px-6 py-10 sm:px-16 sm:py-12">
         <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-sm flex-col gap-4">
+          <img src="/logo-mark.png" alt="Nexus" className="mb-2 h-12 w-auto self-start" />
+          <h2 className="text-xl font-semibold tracking-tight">Sign in to Nexus</h2>
           <div>
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-mute">
               Email

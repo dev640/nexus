@@ -91,45 +91,49 @@ export function Sidebar({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col justify-between border-r border-line bg-white px-3 py-4 transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={
+          `fixed inset-y-0 right-0 z-50 flex w-64 shrink-0 flex-col justify-between border-l border-line bg-white px-3 py-4 transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 ${
+            mobileOpen ? 'translate-x-0' : 'translate-x-full'
+          }`
+        }
       >
-        <div>
-          <div className="mb-6 flex items-center justify-between px-3">
-            <span className="text-lg font-semibold tracking-tight">NEXUS</span>
-            <button
-              onClick={onClose}
-              aria-label="Close menu"
-              className="rounded-md p-1 text-mute hover:text-ink lg:hidden"
-            >
-              <X size={18} strokeWidth={1.5} />
-            </button>
+        <div className="flex flex-col gap-1 overflow-y-auto overscroll-contain touch-pan-y">
+          <div>
+            <div className="mb-6 flex items-center justify-between px-3">
+              <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
+              <button
+                onClick={onClose}
+                aria-label="Close menu"
+                className="rounded-md p-1 text-mute hover:text-ink lg:hidden"
+              >
+                <X size={18} strokeWidth={1.5} />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-1">
+              {primaryNav.map((item) => (
+                <NavRow key={item.path} item={item} onNavigate={onClose} />
+              ))}
+            </nav>
           </div>
-          <nav className="flex flex-col gap-1">
-            {primaryNav.map((item) => (
+          <nav className="flex flex-col gap-1 border-t border-line pt-3">
+            {secondaryNav.map((item) => (
               <NavRow key={item.path} item={item} onNavigate={onClose} />
             ))}
+            {userRole === 'ADMIN' && (
+              <div className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink/70">
+                <ShieldCheck size={16} strokeWidth={1.5} className="shrink-0" />
+                Admin
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-ink/70 transition-colors hover:bg-line/60 hover:text-ink"
+            >
+              <LogOut size={16} strokeWidth={1.5} className="shrink-0" />
+              Log out
+            </button>
           </nav>
         </div>
-        <nav className="flex flex-col gap-1 border-t border-line pt-3">
-          {secondaryNav.map((item) => (
-            <NavRow key={item.path} item={item} onNavigate={onClose} />
-          ))}
-          {userRole === 'ADMIN' && (
-            <div className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink/70">
-              <ShieldCheck size={16} strokeWidth={1.5} className="shrink-0" />
-              Admin
-            </div>
-          )}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-ink/70 transition-colors hover:bg-line/60 hover:text-ink"
-          >
-            <LogOut size={16} strokeWidth={1.5} className="shrink-0" />
-            Log out
-          </button>
-        </nav>
       </aside>
     </>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Menu } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
@@ -8,10 +8,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
 
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mobileNavOpen])
+
   return (
     <div className="flex h-screen w-full flex-col bg-paper lg:flex-row">
       <header className="flex shrink-0 items-center justify-between border-b border-line bg-white px-4 py-3 lg:hidden">
-        <span className="text-lg font-semibold tracking-tight">NEXUS</span>
+        <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
         <button
           onClick={() => setMobileNavOpen(true)}
           aria-label="Open menu"
