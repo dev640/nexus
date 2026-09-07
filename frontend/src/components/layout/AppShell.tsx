@@ -11,7 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen w-full flex-col bg-paper lg:flex-row">
       <header className="flex shrink-0 items-center justify-between border-b border-line bg-white px-4 py-3 lg:hidden">
-        <span className="text-lg font-semibold tracking-tight">NEXUS</span>
+        <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
         <button
           onClick={() => setMobileNavOpen(true)}
           aria-label="Open menu"

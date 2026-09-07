@@ -97,7 +97,7 @@ export function Sidebar({
       >
         <div>
           <div className="mb-6 flex items-center justify-between px-3">
-            <span className="text-lg font-semibold tracking-tight">NEXUS</span>
+            <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
             <button
               onClick={onClose}
               aria-label="Close menu"
