@@ -171,7 +171,7 @@ export interface Settings {
 }
 
 const defaultSettings: Settings = {
-  displayName: 'User',
+  displayName: 'Devendra',
   role: 'Project Manager',
   defaultAssigneeId: 'devendra',
   mutedCategories: [],
