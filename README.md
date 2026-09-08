@@ -1,19 +1,18 @@
 # NEXUS — Agile Project Management Platform
 
-> Auto-deployment: every push to `main` deploys the frontend to Vercel production automatically via GitHub Actions.
+> Auto-deployment: every push to `main` deploys the frontend to Vercel production automatically via the native Vercel–GitHub integration (connected to `dev640/nexus`). No extra setup or secrets required.
 
-## One-time Vercel auto-deploy setup
+## How auto-deploy works
 
-The repository includes [.github/workflows/vercel-auto-deploy.yml](.github/workflows/vercel-auto-deploy.yml), which runs `npx vercel deploy --prod --yes` on every push to `main`. To activate it, add one GitHub Actions secret to this repository:
+The Vercel project **frontend** is connected to this GitHub repository (`dev640/nexus`, branch `main`). Vercel builds the project from the repo root using [`vercel.json`](vercel.json):
 
-1. Go to **GitHub → dev640/nexus → Settings → Secrets and variables → Actions → Secrets → New repository secret**.
-2. Create a secret named **`VERCEL_TOKEN`** with the value:
-   ```
-   <your-vercel-token>
-   ```
-3. After saving, the next push to `main` triggers the workflow and Vercel deploys automatically.
+- Build: `cd frontend && npm install && npm run build` (Vite)
+- Output: `frontend/dist`
+- SPA rewrite so client-side routes fall back to `index.html`
 
-### already-live Vercel URL
+Every push to `main` triggers a production deployment automatically. Nothing else needs to be configured.
+
+### Live URL
 
 - Production: **https://frontend-one-umber-31.vercel.app**
 
@@ -34,14 +33,11 @@ The repository includes [.github/workflows/vercel-auto-deploy.yml](.github/workf
 frontend/   React + TypeScript + Tailwind, Vite, React Router
 backend/    Spring Boot (JVM) — pre-built JAR in Docker
 .docker/    Docker Compose for Postgres + Redis + backend
-.github/    GitHub Actions (Vercel auto-deploy workflow)
 ```
 
 ## Credentials
 
 | Environment | Credential | Notes |
 |---|---|---|
-| Vercel (deploy token) | *store as GitHub Actions secret `VERCEL_TOKEN`* | Never commit to the repo. Get it from Vercel → Settings → Tokens. |
+| Vercel (deploy) | native GitHub integration — no token needed | Connected via Vercel dashboard → project → Settings → Git. |
 | Admin login (mock) | email: `dev` / password: `Shdev_admin` | Frontend mock only — not wired to a real backend auth endpoint yet. |
-
-> The Vercel token is intentionally **not** committed to the repository. The workflow reads it from the `VERCEL_TOKEN` GitHub Actions secret.
