@@ -1,122 +1,154 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
-import { useAppState } from "../../hooks/useState";
-import { navItems, apiVaultCategories } from "../../lib/nav";
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Grid, Folder, Warehouse, Code, Plug, BarChart2,
-  Layers, ChevronRight, Menu,
-} from "../icons";
+  X,
+  Home,
+  ListChecks,
+  Inbox,
+  FolderKanban,
+  Rocket,
+  Kanban,
+  ListTodo,
+  Calendar,
+  BookOpen,
+  PenTool,
+  BarChart3,
+  Sparkles,
+  Users,
+  Settings,
+  HelpCircle,
+  LogOut,
+  ShieldCheck,
+  Vault,
+  FlaskConical,
+  Plug,
+  type LucideIcon,
+} from 'lucide-react'
+import { primaryNav, secondaryNav, apiVaultNav } from '../../lib/nav'
+import type { NavItem } from '../../lib/nav'
+import { useAppStore } from '../../store/useAppStore'
 
-interface IconComponent {
-  (props: { size?: number; className?: string }): React.ReactElement;
+const iconByPath: Record<string, LucideIcon> = {
+  '/': Home,
+  '/my-work': ListChecks,
+  '/inbox': Inbox,
+  '/projects': FolderKanban,
+  '/sprints': Rocket,
+  '/board': Kanban,
+  '/backlog': ListTodo,
+  '/calendar': Calendar,
+  '/wiki': BookOpen,
+  '/whiteboard': PenTool,
+  '/analytics': BarChart3,
+  '/ai': Sparkles,
+  '/team': Users,
+  '/settings': Settings,
+  '/help': HelpCircle,
+  '/api-vault': Vault,
+  '/api-playground': FlaskConical,
+  '/integrations': Plug,
 }
 
-const iconMap: Record<string, IconComponent> = {
-  grid: Grid,
-  folder: Folder,
-  warehouse: Warehouse,
-  code: Code,
-  plug: Plug,
-  "bar-chart-2": BarChart2,
-};
+function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const Icon = iconByPath[item.path]
+  return (
+    <NavLink
+      to={item.path}
+      end={item.path === '/'}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+          isActive
+            ? 'bg-ink text-white'
+            : 'text-ink/70 hover:bg-line/60 hover:text-ink'
+        }`
+      }
+    >
+      {Icon && <Icon size={16} strokeWidth={1.5} className="shrink-0" />}
+      {item.label}
+    </NavLink>
+  )
+}
 
-export function Sidebar() {
-  const { sidebarOpen, toggleSidebar } = useAppState();
+export function Sidebar({
+  mobileOpen,
+  onClose,
+}: {
+  mobileOpen: boolean
+  onClose: () => void
+}) {
+  const navigate = useNavigate()
+  const userRole = useAppStore((s) => s.userRole)
+  const logout = useAppStore((s) => s.logout)
+
+  function handleLogout() {
+    logout()
+    onClose()
+    navigate('/login')
+  }
 
   return (
-    <aside
-      className={`fixed left-0 top-0 z-40 h-screen flex flex-col border-r border-slate-700/30 bg-cosmic-900/80 backdrop-blur-md transition-all duration-300 ${
-        sidebarOpen ? "w-64" : "w-16"
-      }`}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-3 h-16 px-4 border-b border-slate-700/30 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-nebula-500 to-ember-500 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg shadow-nebula-500/20">
-          N
-        </div>
-        {sidebarOpen && (
-          <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-slate-100 whitespace-nowrap">NEXUS</h1>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest whitespace-nowrap">Productivity OS</p>
-          </div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {navItems.map((item) => {
-          const Icon = iconMap[item.icon] ?? Grid;
-          return (
-            <NavLink
-              key={item.href}
-              to={item.href}
-              end={item.href === "/"}
-              className={({ isActive: linkActive }) =>
-                `group flex items-center gap-3 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  linkActive
-                    ? "bg-nebula-500/15 text-nebula-300 shadow-sm shadow-nebula-500/10"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                } ${!sidebarOpen ? "justify-center" : ""}`
-              }
-              title={!sidebarOpen ? item.label : undefined}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    size={sidebarOpen ? 18 : 20}
-                    className={isActive ? "text-nebula-400" : "text-slate-500 group-hover:text-slate-300 transition-colors"}
-                  />
-                  {sidebarOpen && (
-                    <>
-                      <span className="whitespace-nowrap">{item.label}</span>
-                      {isActive && <ChevronRight size={14} className="text-nebula-400" />}
-                    </>
-                  )}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* API Vault Categories */}
-      {sidebarOpen && (
-        <div className="border-t border-slate-700/30 px-3 py-3">
-          <div className="flex items-center gap-2 px-2 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-            <Layers size={12} className="text-nebula-500" />
-            API Vault
-          </div>
-          <div className="space-y-0.5">
-            {apiVaultCategories.slice(0, 6).map((cat) => (
-              <NavLink
-                key={cat.href}
-                to={cat.href}
-                className={({ isActive }) =>
-                  `flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                    isActive
-                      ? "text-nebula-300 bg-nebula-500/10"
-                      : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
-                  }`
-                }
-              >
-                <span>{cat.label}</span>
-                <span className="text-[10px] text-slate-600 bg-slate-800/60 px-1.5 py-0.5 rounded-full font-mono">
-                  {cat.count}
-                </span>
-              </NavLink>
-            ))}
-          </div>
-        </div>
+    <>
+      {mobileOpen && (
+        <div
+          onClick={onClose}
+          aria-hidden="true"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        />
       )}
 
-      {/* Toggle */}
-      <button
-        onClick={toggleSidebar}
-        className="m-2 h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors border border-slate-700/30 shrink-0 sticky bottom-2"
-        aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+      <aside
+        className={
+          `fixed inset-y-0 right-0 z-50 flex w-64 shrink-0 flex-col justify-between border-l border-line bg-white px-3 py-4 transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-60 lg:translate-x-0 ${
+            mobileOpen ? 'translate-x-0' : 'translate-x-full'
+          }`
+        }
       >
-        <Menu size={16} />
-      </button>
-    </aside>
-  );
+        <div className="flex flex-col gap-1 overflow-y-auto overscroll-contain touch-pan-y">
+          <div>
+            <div className="mb-6 flex items-center justify-between px-3">
+              <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
+              <button
+                onClick={onClose}
+                aria-label="Close menu"
+                className="rounded-md p-1 text-mute hover:text-ink lg:hidden"
+              >
+                <X size={18} strokeWidth={1.5} />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-1">
+              {primaryNav.map((item) => (
+                <NavRow key={item.path} item={item} onNavigate={onClose} />
+              ))}
+            </nav>
+          </div>
+          <nav className="flex flex-col gap-1 border-t border-line pt-3">
+            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-mute">
+              API Vault
+            </div>
+            {apiVaultNav.map((item) => (
+              <NavRow key={item.path} item={item} onNavigate={onClose} />
+            ))}
+          </nav>
+          <nav className="flex flex-col gap-1 border-t border-line pt-3">
+            {secondaryNav.map((item) => (
+              <NavRow key={item.path} item={item} onNavigate={onClose} />
+            ))}
+            {userRole === 'ADMIN' && (
+              <div className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink/70">
+                <ShieldCheck size={16} strokeWidth={1.5} className="shrink-0" />
+                Admin
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-ink/70 transition-colors hover:bg-line/60 hover:text-ink"
+            >
+              <LogOut size={16} strokeWidth={1.5} className="shrink-0" />
+              Log out
+            </button>
+          </nav>
+        </div>
+      </aside>
+    </>
+  )
 }

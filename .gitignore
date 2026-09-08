@@ -13,6 +13,9 @@ backend/target/
 # Vercel
 .vercel
 
+# Tooling output
+.playwright-mcp/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

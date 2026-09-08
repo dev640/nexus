@@ -1,61 +1,24 @@
-# NEXUS — Agile Project Management Platform
+# Nexus — Agile Project Management Platform
 
-Full-stack scaffold: React/TypeScript/Tailwind frontend, Spring Boot 4 (Java 21) backend, PostgreSQL + Redis.
+> Auto-deployment: every push to `main` deploys the frontend to Vercel production automatically via the native Vercel–GitHub integration (connected to `dev640/nexus`). No extra setup or secrets required.
 
-## Prerequisites
+## How auto-deploy works
 
-- Node.js 20+ (installed: v22)
-- JDK 21 (installed via winget: Eclipse Temurin 21.0.12)
-- Docker (for Postgres/Redis) — not installed on this machine yet
+The Vercel project **frontend** is connected to this GitHub repository (`dev640/nexus`, branch `main`). Vercel builds the project from the repo root using [`vercel.json`](vercel.json):
 
-## Frontend
+- Build: `cd frontend && npm install && npm run build` (Vite)
+- Output: `frontend/dist`
+- SPA rewrite so client-side routes fall back to `index.html`
 
-```
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
-```
+Every push to `main` triggers a production deployment automatically. Nothing else needs to be configured.
 
-## Backend
+### Live URL
 
-```
-cd backend
-./mvnw spring-boot:run   # http://localhost:8080
-```
-
-Requires Postgres + Redis running (see `docker-compose.yml` at repo root):
-
-```
-docker compose up -d
-```
-
-Without Docker, point `spring.datasource.url` / `spring.data.redis.host` in
-`backend/src/main/resources/application.properties` at any reachable
-Postgres 16 / Redis 7 instance.
-
-## Structure
-
-```
-frontend/   React + TS + Tailwind v4, React Router, TanStack Query, Zustand
-backend/    Spring Boot 4, Spring Data JPA, Spring Security, WebSocket, Redis
-docker-compose.yml   Postgres + Redis for local dev
-```
-
-### Backend packages
-
-```
-domain/         JPA entities (user, organization, workspace, project, sprint, task)
-repository/     Spring Data repositories
-web/            REST controllers (/api/projects, /api/sprints, /api/tasks, /api/health,
-                /api/external — proxy over the Apivault-curated free APIs)
-config/         SecurityConfig (CORS + permitAll placeholder — JWT auth not yet wired)
-```
+- Production: **https://frontend-one-umber-31.vercel.app**
 
 ## External API proxy layer
 
-The free public APIs surfaced in the API Vault (catalog curated from
-[Apivault.dev](https://apivault.dev)) are proxied through the backend so browser
-CORS never blocks a call and upstream rate limits are managed in one place:
+The free public APIs surfaced in the API Vault (catalog curated from [Apivault.dev](https://apivault.dev)) are proxied through the backend so browser CORS never blocks a call and upstream rate limits are managed in one place:
 
 ```
 GET /api/external                              list proxied APIs
@@ -67,20 +30,16 @@ GET /api/external/jsonplaceholder/todos/1      mock task data
 GET /api/external/reddit/productivity/hot.json subreddit feed
 ```
 
-The frontend (`src/lib/proxy.ts`) probes `/api/health` and uses the proxy when
-the backend is up; otherwise it transparently falls back to direct browser
-fetches (or demo data where upstreams block CORS, e.g. Reddit).
+The frontend (`src/lib/proxy.ts`) probes `/api/health` and uses the proxy when the backend is up; otherwise it transparently falls back to direct browser fetches (or demo data where upstreams block CORS, e.g. Reddit).
 
-### Frontend structure
+## Local development
 
-```
-src/components/layout/   Sidebar, AppShell
-src/components/ui/       shared components
-src/pages/               one file per primary nav route
-src/lib/nav.ts           sidebar navigation config + API Vault categories
-src/lib/proxy.ts         backend proxy client with direct-fetch fallback
-src/hooks/queries.ts     TanStack Query hooks over the proxy (quote, weather, bored, rates, reddit)
-```
+| Service | Command | URL |
+|---|---|---|
+| Frontend (Vite) | `cd frontend && npm run dev` | http://localhost:5173 |
+| Backend (Spring Boot) | `cd backend && ./mvnw spring-boot:run` | http://localhost:8080 |
+| Database (Postgres) | `docker compose up -d postgres` | localhost:5432 |
+| Cache (Redis) | `docker compose up -d redis` | localhost:6379 |
 
 ## Tests
 
@@ -100,13 +59,8 @@ cd backend
 ./mvnw test -Dtest='ExternalApi*Test'    # targeted: proxy service + controller
 ```
 
-Covered: upstream URL building/encoding per proxied API, unknown-slug 404,
-upstream-failure 502 translation, and controller slug/path delegation.
+Covered: upstream URL building/encoding per proxied API, unknown-slug 404, upstream-failure 502 translation, and controller slug/path delegation.
 
 ## Status
 
-P0 infra scaffold plus the API Vault experience: routes, core CRUD endpoints
-for Project/Sprint/Task, the Apivault-curated free API catalog, playground and
-integrations pages, and the backend proxy layer. Auth, AI features, board/
-backlog UI, wiki, whiteboard, chat and the marketing site are not built yet —
-see the product spec for full scope and MVP priority order (P0 → P3).
+P0 infra scaffold plus the API Vault experience: landing + login, core CRUD endpoints for Project/Sprint/Task, the Apivault-curated free API catalog, playground and integrations pages, and the backend proxy layer.

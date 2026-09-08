@@ -1,48 +1,28 @@
 export interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-  description?: string;
+  label: string
+  path: string
 }
 
-export const navItems: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/",
-    icon: "grid",
-    description: "Overview of your workspaces and active projects",
-  },
-  {
-    label: "Projects",
-    href: "/projects",
-    icon: "folder",
-    description: "Manage projects, sprints, and tasks",
-  },
-  {
-    label: "API Vault",
-    href: "/api-vault",
-    icon: "warehouse",
-    description: "Discover and test free APIs via Apivault",
-  },
-  {
-    label: "API Playground",
-    href: "/api-playground",
-    icon: "code",
-    description: "Explore and experiment with integrated APIs",
-  },
-  {
-    label: "Integrations",
-    href: "/integrations",
-    icon: "plug",
-    description: "Connect external services and webhooks",
-  },
-  {
-    label: "Analytics",
-    href: "/analytics",
-    icon: "bar-chart-2",
-    description: "Productivity and usage metrics",
-  },
-];
+export const primaryNav: NavItem[] = [
+  { label: 'Home', path: '/' },
+  { label: 'My Work', path: '/my-work' },
+  { label: 'Inbox', path: '/inbox' },
+  { label: 'Projects', path: '/projects' },
+  { label: 'Sprints', path: '/sprints' },
+  { label: 'Board', path: '/board' },
+  { label: 'Backlog', path: '/backlog' },
+  { label: 'Calendar', path: '/calendar' },
+  { label: 'Wiki', path: '/wiki' },
+  { label: 'Whiteboard', path: '/whiteboard' },
+  { label: 'Analytics', path: '/analytics' },
+  { label: 'AI Copilot', path: '/ai' },
+]
+
+export const secondaryNav: NavItem[] = [
+  { label: 'Team', path: '/team' },
+  { label: 'Settings', path: '/settings' },
+  { label: 'Help', path: '/help' },
+]
 
 export const apiVaultCategories = [
   { label: "Development", href: "/api-vault/development", count: 125 },
@@ -57,6 +37,12 @@ export const apiVaultCategories = [
   { label: "Events", href: "/api-vault/events", count: 16 },
   { label: "Text Analysis", href: "/api-vault/text-analysis", count: 14 },
   { label: "Cloud Storage", href: "/api-vault/cloud-storage", count: 12 },
+];
+
+export const apiVaultNav: { label: string; path: string }[] = [
+  { label: "API Vault", path: "/api-vault" },
+  { label: "API Playground", path: "/api-playground" },
+  { label: "Integrations", path: "/integrations" },
 ];
 
 export interface ApiIntegration {
