@@ -30,7 +30,12 @@ public class SecurityConfig {
 
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // Placeholder while auth is unwired: allow local dev + Freebuff preview origins.
+        // Tighten to a fixed origin list once JWT auth lands (see spec 66 Security).
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "https://*.daytonaproxy01.net",
+                "https://*.freebuff.app"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

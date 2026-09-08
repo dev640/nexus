@@ -1,75 +1,197 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", system-ui, sans-serif;
+  --color-nebula-50: #f0f4ff;
+  --color-nebula-100: #dbe4ff;
+  --color-nebula-200: #bac8ff;
+  --color-nebula-300: #91a7ff;
+  --color-nebula-400: #748ffc;
+  --color-nebula-500: #5c7cfa;
+  --color-nebula-600: #4c6ef5;
+  --color-nebula-700: #4263eb;
+  --color-nebula-800: #3b5bdb;
+  --color-nebula-900: #364fc7;
 
-  --color-ink: #111111;
-  --color-black: #000000;
-  --color-paper: #f5f4f0;
-  --color-white: #ffffff;
-  --color-line: #e7e6e2;
-  --color-mute: #8a8a86;
+  --color-cosmic-50: #0b1120;
+  --color-cosmic-100: #151e32;
+  --color-cosmic-200: #1e2940;
+  --color-cosmic-300: #2a3a57;
+  --color-cosmic-400: #3b5277;
+  --color-cosmic-500: #4b6b93;
+  --color-cosmic-600: #5a7db0;
+  --color-cosmic-700: #6a8ec8;
+  --color-cosmic-800: #0b1322;
+  --color-cosmic-900: #080d1a;
+  --color-cosmic-950: #050810;
 
-  --color-accent: #c6ff4a;
+  --color-ember-50: #fff7ed;
+  --color-ember-100: #ffedd5;
+  --color-ember-200: #fed7aa;
+  --color-ember-300: #fdba74;
+  --color-ember-400: #fb923c;
+  --color-ember-500: #f97316;
+  --color-ember-600: #ea580c;
+  --color-ember-700: #c2410c;
 
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --color-moss-50: #f0fdf4;
+  --color-moss-100: #dcfce7;
+  --color-moss-200: #bbf7d0;
+  --color-moss-300: #86efac;
+  --color-moss-400: #4ade80;
+  --color-moss-500: #22c55e;
+  --color-moss-600: #16a34a;
+  --color-moss-700: #15803d;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  --font-sans: "Inter", "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
-:root {
-  color-scheme: light;
-}
-
-body {
-  margin: 0;
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-slate-200);
   }
-  to {
-    transform: translateX(-50%);
+
+  body {
+    @apply bg-cosmic-950 text-slate-100 font-sans antialiased;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(76, 110, 245, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 50%, rgba(249, 115, 22, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 0%, rgba(34, 197, 94, 0.04) 0%, transparent 40%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: var(--color-nebula-500);
+    color: white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-cosmic-950);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-slate-700);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-slate-600);
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 }
 
-.animate-marquee {
-  animation: marquee linear infinite;
+@utility glass {
+  background: rgba(21, 30, 50, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(75, 107, 147, 0.2);
 }
 
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+@utility badge-api {
+  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+}
+
+@layer components {
+  .glow-nebula {
+    box-shadow: 0 0 20px rgba(76, 110, 245, 0.3), 0 0 40px rgba(76, 110, 245, 0.1);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .glow-ember {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3), 0 0 40px rgba(249, 115, 22, 0.1);
   }
-}
 
-.animate-page-in {
-  animation: page-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
-}
+  .glow-moss {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1);
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee,
-  .animate-page-in {
-    animation: none;
+  .glass-hover:hover {
+    background: rgba(26, 38, 65, 0.8);
+    border-color: rgba(75, 107, 147, 0.4);
+  }
+
+  .api-card {
+    @apply glass rounded-xl p-5 transition-all duration-300;
+    @apply hover:scale-[1.01] hover:border-nebula-400/40;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-nebula-400 via-ember-400 to-moss-400 bg-clip-text text-transparent;
+  }
+
+  .badge-nebula {
+    @apply badge-api bg-nebula-500/15 text-nebula-300 border border-nebula-500/25;
+  }
+
+  .badge-ember {
+    @apply badge-api bg-ember-500/15 text-ember-300 border border-ember-500/25;
+  }
+
+  .badge-moss {
+    @apply badge-api bg-moss-500/15 text-moss-300 border border-moss-500/25;
+  }
+
+  .badge-slate {
+    @apply badge-api bg-slate-700/50 text-slate-300 border border-slate-600/40;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium;
+    @apply bg-nebula-500 hover:bg-nebula-600 text-white;
+    @apply transition-all duration-200 active:scale-[0.97];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium;
+    @apply bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 border border-slate-600/40;
+    @apply transition-all duration-200 active:scale-[0.97];
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium;
+    @apply text-slate-400 hover:text-slate-200 hover:bg-slate-700/40;
+    @apply transition-all duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 rounded-lg text-sm bg-slate-800/60 border border-slate-700/50;
+    @apply text-slate-200 placeholder-slate-500;
+    @apply focus:outline-none focus:ring-2 focus:ring-nebula-500/40 focus:border-nebula-500/50;
+    @apply transition-all duration-200;
+  }
+
+  .tab-active {
+    @apply border-b-2 border-nebula-400 text-nebula-300;
+  }
+
+  .grid-api-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
   }
 }
