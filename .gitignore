@@ -1,2 +1,8 @@
 .playwright-mcp/
 .vercel
+.vercel.json
+.freebuff/
+node_modules/
+/package.json
+/package-lock.json
+/api/

@@ -1,10 +1,10 @@
 # NEXUS — Agile Project Management Platform
 
-> Auto-deployment: every push to `main` deploys the frontend to Vercel production automatically via the native Vercel–GitHub integration (connected to `dev640/nexus`). No extra setup or secrets required.
+> Auto-deployment: every push to `main` deploys the frontend to Vercel production automatically via the native Vercel–GitHub integration (connected to `dev640/nexus2.0`). No extra setup or secrets required.
 
 ## How auto-deploy works
 
-The Vercel project **frontend** is connected to this GitHub repository (`dev640/nexus`, branch `main`). Vercel builds the project from the repo root using [`vercel.json`](vercel.json):
+The Vercel project **nexus-2-0** is connected to this GitHub repository (`dev640/nexus2.0`, branch `main`). Vercel builds the project from the repo root using [`vercel.json`](vercel.json):
 
 - Build: `cd frontend && npm install && npm run build` (Vite)
 - Output: `frontend/dist`
@@ -14,7 +14,7 @@ Every push to `main` triggers a production deployment automatically. Nothing els
 
 ### Live URL
 
-- Production: **https://frontend-one-umber-31.vercel.app**
+- Production: **https://nexus-2-0-omega.vercel.app**
 
 ### Local development
 
