@@ -18,12 +18,9 @@ import {
   HelpCircle,
   LogOut,
   ShieldCheck,
-  Vault,
-  FlaskConical,
-  Plug,
   type LucideIcon,
 } from 'lucide-react'
-import { primaryNav, secondaryNav, apiVaultNav } from '../../lib/nav'
+import { primaryNav, secondaryNav } from '../../lib/nav'
 import type { NavItem } from '../../lib/nav'
 import { useAppStore } from '../../store/useAppStore'
 
@@ -43,9 +40,6 @@ const iconByPath: Record<string, LucideIcon> = {
   '/team': Users,
   '/settings': Settings,
   '/help': HelpCircle,
-  '/api-vault': Vault,
-  '/api-playground': FlaskConical,
-  '/integrations': Plug,
 }
 
 function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
@@ -121,14 +115,6 @@ export function Sidebar({
               ))}
             </nav>
           </div>
-          <nav className="flex flex-col gap-1 border-t border-line pt-3">
-            <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-mute">
-              API Vault
-            </div>
-            {apiVaultNav.map((item) => (
-              <NavRow key={item.path} item={item} onNavigate={onClose} />
-            ))}
-          </nav>
           <nav className="flex flex-col gap-1 border-t border-line pt-3">
             {secondaryNav.map((item) => (
               <NavRow key={item.path} item={item} onNavigate={onClose} />

@@ -18,10 +18,6 @@ import { AICopilot } from './pages/AICopilot'
 import { Team } from './pages/Team'
 import { Settings } from './pages/Settings'
 import { Help } from './pages/Help'
-import { ApiVaultPage as ApiVault } from './pages/ApiVault'
-import { CategoryPage } from './pages/CategoryPages'
-import { ApiPlayground } from './pages/ApiPlayground'
-import { Integrations } from './pages/Integrations'
 
 function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
@@ -34,12 +30,6 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     )
-  }
-
-  // The API Vault pages are dark-themed; they get their own surface so they
-  // read correctly inside the light app shell.
-  function VaultSurface({ children }: { children: React.ReactNode }) {
-    return <div className="vault-surface min-h-full p-4 sm:p-6 lg:p-8">{children}</div>
   }
 
   return (
@@ -65,38 +55,6 @@ function App() {
               <Route path="/team" element={<Team />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/help" element={<Help />} />
-              <Route
-                path="/api-vault"
-                element={
-                  <VaultSurface>
-                    <ApiVault />
-                  </VaultSurface>
-                }
-              />
-              <Route
-                path="/api-vault/:category"
-                element={
-                  <VaultSurface>
-                    <CategoryPage />
-                  </VaultSurface>
-                }
-              />
-              <Route
-                path="/api-playground"
-                element={
-                  <VaultSurface>
-                    <ApiPlayground />
-                  </VaultSurface>
-                }
-              />
-              <Route
-                path="/integrations"
-                element={
-                  <VaultSurface>
-                    <Integrations />
-                  </VaultSurface>
-                }
-              />
             </Routes>
           </AppShell>
         }
