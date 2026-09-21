@@ -49,7 +49,7 @@ export function NewTaskModal({
     if (!projectSprints.some((s) => s.id === sprintId)) {
       setSprintId('')
     }
-  }, [projectId])
+  }, [projectId, projectSprints, sprintId])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

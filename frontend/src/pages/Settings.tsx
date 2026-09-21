@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAppStore, type NotificationCategory } from '../store/useAppStore'
 
 const categories: { key: NotificationCategory; label: string }[] = [
@@ -23,11 +23,6 @@ export function Settings() {
   const [confirmingReset, setConfirmingReset] = useState(false)
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('')
-
-  useEffect(() => {
-    setDisplayName(settings.displayName)
-    setRole(settings.role)
-  }, [settings.displayName, settings.role])
 
   function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()

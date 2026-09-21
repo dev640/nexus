@@ -77,11 +77,14 @@ export function AICopilot() {
   function send(text: string) {
     const trimmed = text.trim()
     if (!trimmed) return
-    const userMsg: ChatMessage = { id: Date.now(), role: 'user', text: trimmed }
-    const aiMsg: ChatMessage = { id: Date.now() + 1, role: 'ai', text: generateReply(trimmed) }
+    const baseId = send.key
+    send.key = baseId + 1
+    const userMsg: ChatMessage = { id: baseId, role: 'user', text: trimmed }
+    const aiMsg: ChatMessage = { id: baseId + 1, role: 'ai', text: generateReply(trimmed) }
     setMessages((prev) => [...prev, userMsg, aiMsg])
     setInput('')
   }
+  send.key = 1
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

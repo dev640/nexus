@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { useAppStore } from '../../store/useAppStore'
 
@@ -14,17 +14,12 @@ export function NewSprintModal({
   const projects = useAppStore((s) => s.projects)
   const addSprint = useAppStore((s) => s.addSprint)
 
-  const [projectId, setProjectId] = useState(defaultProjectId ?? projects[0]?.id ?? '')
+  const effectiveProjectId = defaultProjectId ?? projects[0]?.id ?? ''
+  const [projectId, setProjectId] = useState(effectiveProjectId)
   const [goal, setGoal] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [committedPoints, setCommittedPoints] = useState(20)
-
-  useEffect(() => {
-    if (open && defaultProjectId) {
-      setProjectId(defaultProjectId)
-    }
-  }, [open, defaultProjectId])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
