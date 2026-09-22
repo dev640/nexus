@@ -326,6 +326,21 @@ export async function apiDeleteWhiteboardNote(id: number): Promise<void> {
   await api.delete(`/whiteboard/notes/${id}`)
 }
 
+// ---------- Copilot ----------
+
+export interface ApiCopilotAnswer {
+  answer: string
+  mode: 'llm' | 'grounded'
+}
+
+export async function apiAskCopilot(question: string, projectId?: number): Promise<ApiCopilotAnswer> {
+  const { data } = await api.post<ApiCopilotAnswer>('/copilot/ask',
+    { question },
+    { params: projectId != null ? { projectId } : undefined },
+  )
+  return data
+}
+
 /** WebSocket endpoint for live whiteboard events, authenticated with the session token. */
 export function whiteboardSocketUrl(): string {
   const explicit = import.meta.env.VITE_WS_URL as string | undefined

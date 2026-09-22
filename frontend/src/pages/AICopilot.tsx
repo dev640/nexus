@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { apiErrorMessage, apiGetAnalyticsOverview, type ApiAnalyticsOverview } from '../lib/api'
+import {
+  apiAskCopilot,
+  apiErrorMessage,
+  apiGetAnalyticsOverview,
+  type ApiAnalyticsOverview,
+} from '../lib/api'
 
 interface ChatMessage {
   id: number
@@ -31,7 +36,7 @@ function buildReply(question: string, data: ApiAnalyticsOverview): string {
     if (urgentRisks.length === 0) {
       return 'No urgent-priority work is at risk. Urgent work that has already started is on track.'
     }
-    return `${urgentRisks.length} urgent task${urgentRisks.length > 1 ? 's' : ''} need attention: ${urgentRisks
+    return `${urgentRisks.length} urgent task${urgentRisks.length > 1 ? 's need' : ' needs'} attention: ${urgentRisks
       .map((r) => r.title)
       .join(', ')}.`
   }
@@ -60,6 +65,8 @@ export function AICopilot() {
   const [loadError, setLoadError] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [answerMode, setAnswerMode] = useState<'llm' | 'grounded'>('grounded')
+  const [thinking, setThinking] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -90,20 +97,36 @@ export function AICopilot() {
 
   const counterRef = useRef(1)
 
-  function send(text: string) {
+  async function send(text: string) {
     const trimmed = text.trim()
     if (!trimmed || !data) return
     const baseId = counterRef.current
     counterRef.current = baseId + 2
     const userMsg: ChatMessage = { id: baseId, role: 'user', text: trimmed }
-    const aiMsg: ChatMessage = { id: baseId + 1, role: 'ai', text: buildReply(trimmed, data) }
-    setMessages((prev) => [...prev, userMsg, aiMsg])
+    setMessages((prev) => [...prev, userMsg])
     setInput('')
+    setThinking(true)
+    try {
+      // Preferred path: server-side answer (uses an LLM when one is configured,
+      // otherwise the same grounded computation, and it has live data.
+      const reply = await apiAskCopilot(trimmed)
+      setAnswerMode(reply.mode)
+      setMessages((prev) => [...prev, { id: baseId + 1, role: 'ai', text: reply.answer }])
+    } catch (err) {
+      // Safety net: answer locally from the workspace snapshot we already have.
+      setMessages((prev) => [
+        ...prev,
+        { id: baseId + 1, role: 'ai', text: buildReply(trimmed, data) },
+      ])
+      setLoadError(apiErrorMessage(err, 'Copilot is unreachable — answered from cached data'))
+    } finally {
+      setThinking(false)
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    send(input)
+    void send(input)
   }
 
   const risks = data?.risks ?? []
@@ -137,6 +160,11 @@ export function AICopilot() {
                 {m.text}
               </div>
             ))}
+            {thinking && (
+              <div className="mr-auto rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm text-mute">
+                Thinking…
+              </div>
+            )}
           </div>
 
           <div className="border-t border-line p-4">
@@ -144,7 +172,7 @@ export function AICopilot() {
               {suggestedPrompts.map((p) => (
                 <button
                   key={p}
-                  onClick={() => send(p)}
+                  onClick={() => void send(p)}
                   disabled={!data}
                   className="rounded-full border border-line px-3 py-1 text-xs text-mute hover:bg-paper disabled:opacity-50"
                 >
@@ -168,7 +196,9 @@ export function AICopilot() {
               </button>
             </form>
             <p className="mt-2 text-[11px] text-mute">
-              Answers are computed from live task, sprint and workload data — no external AI service.
+              {answerMode === 'llm'
+                ? 'Answered by the configured language model using live workspace data as context.'
+                : 'Answers are computed from live task, sprint and workload data — no external AI service.'}
             </p>
           </div>
         </div>
