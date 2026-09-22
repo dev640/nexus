@@ -1,55 +1,75 @@
 package com.nexus.backend.web;
 
-import com.nexus.backend.domain.task.Task;
-import com.nexus.backend.repository.TaskRepository;
-import java.util.List;
-import java.util.UUID;
+import com.nexus.backend.domain.task.TaskStatus;
+import com.nexus.backend.dto.TaskRequest;
+import com.nexus.backend.dto.TaskResponse;
+import com.nexus.backend.service.TaskService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/tasks")
+@RequiredArgsConstructor
 public class TaskController {
 
-    private final TaskRepository taskRepository;
-
-    public TaskController(TaskRepository taskRepository) {
-        this.taskRepository = taskRepository;
-    }
+    private final TaskService taskService;
 
     @GetMapping
-    public List<Task> list(@RequestParam(required = false) UUID projectId,
-                            @RequestParam(required = false) UUID sprintId) {
+    public ResponseEntity<List<TaskResponse>> listTasks(
+        @RequestParam(required = false) Long projectId,
+        @RequestParam(required = false) Long sprintId
+    ) {
+        List<TaskResponse> tasks;
         if (projectId != null) {
-            return taskRepository.findByProjectId(projectId);
+            tasks = taskService.findByProjectId(projectId);
+        } else if (sprintId != null) {
+            tasks = taskService.findBySprintId(sprintId);
+        } else {
+            tasks = taskService.findAll();
         }
-        if (sprintId != null) {
-            return taskRepository.findBySprintId(sprintId);
-        }
-        return taskRepository.findAll();
-    }
-
-    @PostMapping
-    public Task create(@RequestBody Task task) {
-        return taskRepository.save(task);
+        return ResponseEntity.ok(tasks);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> get(@PathVariable UUID id) {
-        return taskRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<TaskResponse> getTask(@PathVariable Long id) {
+        TaskResponse task = taskService.findById(id);
+        return ResponseEntity.ok(task);
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<Task> update(@PathVariable UUID id, @RequestBody Task patch) {
-        return taskRepository.findById(id).map(existing -> {
-            if (patch.getStatus() != null) existing.setStatus(patch.getStatus());
-            if (patch.getPriority() != null) existing.setPriority(patch.getPriority());
-            if (patch.getStoryPoints() != null) existing.setStoryPoints(patch.getStoryPoints());
-            if (patch.getSprint() != null) existing.setSprint(patch.getSprint());
-            if (patch.getAssignee() != null) existing.setAssignee(patch.getAssignee());
-            return ResponseEntity.ok(taskRepository.save(existing));
-        }).orElse(ResponseEntity.notFound().build());
+    @PostMapping
+    public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request) {
+        TaskResponse task = taskService.create(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(task);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<TaskResponse> updateTask(
+        @PathVariable Long id,
+        @Valid @RequestBody TaskRequest request
+    ) {
+        TaskResponse task = taskService.update(id, request);
+        return ResponseEntity.ok(task);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<TaskResponse> updateTaskStatus(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> payload
+    ) {
+        TaskStatus newStatus = TaskStatus.valueOf(payload.get("status"));
+        TaskResponse task = taskService.updateStatus(id, newStatus);
+        return ResponseEntity.ok(task);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        taskService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

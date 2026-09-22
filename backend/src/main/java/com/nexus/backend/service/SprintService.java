@@ -1,0 +1,94 @@
+package com.nexus.backend.service;
+
+import com.nexus.backend.domain.sprint.Sprint;
+import com.nexus.backend.domain.sprint.SprintStatus;
+import com.nexus.backend.domain.project.Project;
+import com.nexus.backend.dto.SprintRequest;
+import com.nexus.backend.dto.SprintResponse;
+import com.nexus.backend.exception.ResourceNotFoundException;
+import com.nexus.backend.exception.ValidationException;
+import com.nexus.backend.repository.ProjectRepository;
+import com.nexus.backend.repository.SprintRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class SprintService {
+
+    private final SprintRepository sprintRepository;
+    private final ProjectRepository projectRepository;
+
+    @Transactional
+    public SprintResponse create(SprintRequest request) {
+        Project project = projectRepository.findById(request.projectId())
+            .orElseThrow(() -> new ResourceNotFoundException("Project", "id", request.projectId()));
+
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new ValidationException("End date must be after start date");
+        }
+
+        Sprint sprint = new Sprint();
+        sprint.setProject(project);
+
+        // Calculate sprint number
+        int sprintCount = sprintRepository.countByProject(project);
+        sprint.setNumber(sprintCount + 1);
+
+        sprint.setGoal(request.goal());
+        sprint.setStartDate(request.startDate());
+        sprint.setEndDate(request.endDate());
+        sprint.setCommittedPoints(request.committedPoints() != null ? request.committedPoints() : 0);
+        sprint.setStatus(request.status() != null ? request.status() : SprintStatus.PLANNED);
+
+        Sprint savedSprint = sprintRepository.save(sprint);
+
+        // Update project sprint number
+        project.setSprintNumber(sprint.getNumber());
+        projectRepository.save(project);
+
+        return mapToResponse(savedSprint);
+    }
+
+    public SprintResponse findById(Long id) {
+        Sprint sprint = sprintRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Sprint", "id", id));
+        return mapToResponse(sprint);
+    }
+
+    public List<SprintResponse> findByProjectId(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+        return sprintRepository.findByProject(project).stream()
+            .map(this::mapToResponse)
+            .toList();
+    }
+
+    @Transactional
+    public SprintResponse updateStatus(Long id, SprintStatus status) {
+        Sprint sprint = sprintRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Sprint", "id", id));
+        sprint.setStatus(status);
+        Sprint updatedSprint = sprintRepository.save(sprint);
+        return mapToResponse(updatedSprint);
+    }
+
+    private SprintResponse mapToResponse(Sprint sprint) {
+        return new SprintResponse(
+            sprint.getId(),
+            sprint.getProject().getId(),
+            sprint.getProject().getName(),
+            sprint.getNumber(),
+            sprint.getGoal(),
+            sprint.getStartDate(),
+            sprint.getEndDate(),
+            sprint.getCommittedPoints(),
+            sprint.getStatus(),
+            sprint.getCreatedAt(),
+            sprint.getUpdatedAt()
+        );
+    }
+}
