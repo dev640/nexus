@@ -14,6 +14,8 @@ import com.nexus.backend.repository.SprintRepository;
 import com.nexus.backend.repository.TaskRepository;
 import com.nexus.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,10 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final SprintRepository sprintRepository;
     private final UserRepository userRepository;
+
+    @Autowired
+    @Lazy
+    private NotificationService notificationService;
 
     @Transactional
     public TaskResponse create(TaskRequest request) {
@@ -57,6 +63,9 @@ public class TaskService {
         task.setLabels(request.labels());
 
         Task savedTask = taskRepository.save(task);
+        if (savedTask.getAssignee() != null) {
+            notificationService.notifyTaskAssigned(savedTask, savedTask.getAssignee());
+        }
         return mapToResponse(savedTask);
     }
 
@@ -113,10 +122,16 @@ public class TaskService {
         task.setStoryPoints(request.storyPoints());
         task.setLabels(request.labels());
 
+        // Notify on a newly added assignee (not on reassignment to the same person)
+        User previousAssignee = task.getAssignee();
         if (request.assigneeId() != null) {
             User assignee = userRepository.findById(request.assigneeId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.assigneeId()));
-            task.setAssignee(assignee);
+            if (!assignee.equals(previousAssignee)) {
+                task.setAssignee(assignee);
+                task = taskRepository.save(task);
+                notificationService.notifyTaskAssigned(task, assignee);
+            }
         } else {
             task.setAssignee(null);
         }

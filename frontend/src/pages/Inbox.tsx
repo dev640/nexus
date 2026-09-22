@@ -24,6 +24,7 @@ export function Inbox() {
   const notifications = useAppStore((s) => s.notifications)
   const markRead = useAppStore((s) => s.markNotificationRead)
   const archive = useAppStore((s) => s.archiveNotification)
+  const markAllRead = useAppStore((s) => s.markAllNotificationsRead)
   const mutedCategories = useAppStore((s) => s.settings.mutedCategories)
   const [tab, setTab] = useState<'ALL' | Category>('ALL')
 
@@ -39,9 +40,17 @@ export function Inbox() {
         Notifications
       </div>
       <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">Inbox</h1>
-      {unreadCount > 0 && (
-        <p className="mt-3 text-sm text-mute">{unreadCount} unread</p>
-      )}
+      <div className="mt-3 flex items-center gap-4">
+        {unreadCount > 0 && <p className="text-sm text-mute">{unreadCount} unread</p>}
+        {unreadCount > 0 && (
+          <button
+            onClick={() => void markAllRead()}
+            className="text-xs font-medium text-ink underline-offset-2 hover:underline"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
 
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((t) => (

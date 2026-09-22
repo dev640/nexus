@@ -233,6 +233,33 @@ export async function apiDeleteWikiPage(id: number): Promise<void> {
   await api.delete(`/wiki/${id}`)
 }
 
+// ---------- Notifications ----------
+
+export interface ApiNotification {
+  id: number
+  category: string
+  text: string
+  read: boolean
+  createdAt: string
+}
+
+export async function apiListNotifications(): Promise<ApiNotification[]> {
+  const { data } = await api.get<ApiNotification[]>('/notifications')
+  return data
+}
+
+export async function apiMarkNotificationRead(id: number): Promise<void> {
+  await api.patch(`/notifications/${id}/read`)
+}
+
+export async function apiMarkAllNotificationsRead(): Promise<void> {
+  await api.post('/notifications/read-all')
+}
+
+export async function apiArchiveNotification(id: number): Promise<void> {
+  await api.delete(`/notifications/${id}`)
+}
+
 /** Extract a human-readable message from an axios/network error. */
 export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {

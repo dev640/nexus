@@ -19,6 +19,10 @@ import {
   apiCreateWikiPage,
   apiDeleteWikiPage,
   apiListWikiPages,
+  apiListNotifications,
+  apiMarkNotificationRead,
+  apiMarkAllNotificationsRead,
+  apiArchiveNotification,
   getStoredToken,
   storeToken,
   type ApiUser,
@@ -123,15 +127,15 @@ export interface Notification {
   archived: boolean
 }
 
-const seedNotifications: Notification[] = [
-  { id: 1, category: 'MENTIONS', text: 'Vidhi mentioned you in TASK-182', time: '12m ago', read: false, archived: false },
-  { id: 2, category: 'AI', text: 'AI detected a sprint risk', time: '1h ago', read: false, archived: false },
-  { id: 3, category: 'SYSTEM', text: 'Sprint 08 ends in 3 days', time: '3h ago', read: false, archived: false },
-  { id: 4, category: 'TASKS', text: 'Palak completed TASK-193', time: '5h ago', read: true, archived: false },
-  { id: 5, category: 'PROJECTS', text: 'You were added to AI Commerce Platform', time: '1d ago', read: true, archived: false },
-  { id: 6, category: 'AI', text: 'AI generated sprint documentation for Sprint 08', time: '1d ago', read: true, archived: false },
-  { id: 7, category: 'MENTIONS', text: 'Achal mentioned you in a comment on TASK-186', time: '2d ago', read: true, archived: false },
-]
+function timeAgo(iso: string): string {
+  const seconds = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
 
 export interface Settings {
   displayName: string
@@ -267,9 +271,11 @@ interface AppState {
   updateWikiPage: (id: string, input: { title: string; content: string }) => Promise<WikiResult>
   deleteWikiPage: (id: string) => Promise<WikiResult>
 
-  // Notifications (local until Phase 4)
+  // Notifications (API-backed since Phase 4)
+  loadNotifications: () => Promise<void>
   markNotificationRead: (id: number) => void
   archiveNotification: (id: number) => void
+  markAllNotificationsRead: () => Promise<void>
 
   // Settings (profile is API-backed; the rest is local until Phase 4)
   updateSettings: (input: Partial<Pick<Settings, 'displayName' | 'role' | 'defaultAssigneeId'>>) => void
@@ -287,7 +293,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   teams: seedTeams,
   wikiPages: [],
   stickyNotes: seedStickyNotes,
-  notifications: seedNotifications,
+  notifications: [],
   settings: {
     displayName: '',
     role: '',
@@ -372,6 +378,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       ])
 
       void get().loadWikiPages()
+      void get().loadNotifications()
 
       const members = users.map(mapUser)
       const displayName = get().settings.displayName || members[0]?.name || ''
@@ -692,18 +699,47 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
   },
 
-  // ---------------- Notifications (local until Phase 4) ----------------
+  // ---------------- Notifications (API-backed) ----------------
+
+  loadNotifications: async () => {
+    try {
+      const items = await apiListNotifications()
+      set({
+        notifications: items.map((n) => ({
+          id: n.id,
+          category: (n.category as NotificationCategory) ?? 'SYSTEM',
+          text: n.text,
+          time: timeAgo(n.createdAt),
+          read: n.read,
+          archived: false,
+        })),
+      })
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to load notifications') })
+    }
+  },
 
   markNotificationRead: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    }))
+    // Optimistic; roll back on failure
+    const previous = get().notifications
+    set({ notifications: previous.map((n) => (n.id === id ? { ...n, read: true } : n)) })
+    apiMarkNotificationRead(id).catch(() => set({ notifications: previous }))
   },
 
   archiveNotification: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => (n.id === id ? { ...n, archived: true } : n)),
-    }))
+    const previous = get().notifications
+    set({ notifications: previous.filter((n) => n.id !== id) })
+    apiArchiveNotification(id).catch(() => set({ notifications: previous }))
+  },
+
+  markAllNotificationsRead: async () => {
+    const previous = get().notifications
+    set({ notifications: previous.map((n) => ({ ...n, read: true })) })
+    try {
+      await apiMarkAllNotificationsRead()
+    } catch {
+      set({ notifications: previous })
+    }
   },
 
   // ---------------- Settings / profile ----------------
