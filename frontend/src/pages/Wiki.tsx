@@ -18,6 +18,7 @@ export function Wiki() {
   const [draftTitle, setDraftTitle] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const selected = wikiPages.find((p) => p.id === selectedId)
 
@@ -40,17 +41,23 @@ export function Wiki() {
     setEditing(true)
   }
 
-  function handleSave() {
-    if (!selected || !draftTitle.trim()) return
-    updateWikiPage(selected.id, { title: draftTitle.trim(), content: draftContent })
-    setEditing(false)
+  async function handleSave() {
+    if (!selected || !draftTitle.trim() || saving) return
+    setSaving(true)
+    const result = await updateWikiPage(selected.id, { title: draftTitle.trim(), content: draftContent })
+    setSaving(false)
+    if (result.ok) {
+      setEditing(false)
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!selected) return
-    deleteWikiPage(selected.id)
-    setConfirmingDelete(false)
-    setSelectedId(undefined)
+    const result = await deleteWikiPage(selected.id)
+    if (result.ok) {
+      setConfirmingDelete(false)
+      setSelectedId(undefined)
+    }
   }
 
   return (
@@ -115,9 +122,10 @@ export function Wiki() {
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black"
+                  disabled={saving}
+                  className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
                 >
-                  Save
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   onClick={() => setEditing(false)}
@@ -142,12 +150,12 @@ export function Wiki() {
                   </button>
                   {confirmingDelete ? (
                     <>
-                      <button
-                        onClick={handleDelete}
-                        className="rounded-md bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger/90"
-                      >
-                        Confirm
-                      </button>
+                <button
+                  onClick={() => void handleDelete()}
+                  className="rounded-md bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger/90"
+                >
+                  Confirm
+                </button>
                       <button
                         onClick={() => setConfirmingDelete(false)}
                         className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"

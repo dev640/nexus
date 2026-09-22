@@ -15,6 +15,10 @@ import {
   apiUpdateSprintStatus,
   apiUpdateTaskStatus,
   apiUpdateUserRole,
+  apiUpdateWikiPage,
+  apiCreateWikiPage,
+  apiDeleteWikiPage,
+  apiListWikiPages,
   getStoredToken,
   storeToken,
   type ApiUser,
@@ -89,26 +93,6 @@ export interface WikiPage {
   author: string
   updatedAt: string
 }
-
-const seedWikiPages: WikiPage[] = [
-  {
-    id: 'onboarding',
-    title: 'Engineering Onboarding',
-    content:
-      'Welcome to the team.\n\n1. Clone the repo and run `npm install` in frontend/.\n2. Copy .env.example to .env and fill in local Postgres/Redis creds.\n3. Run `npm run dev` and check http://localhost:5173.\n4. Read the API auth doc before touching the backend.',
-    author: 'Devendra',
-    updatedAt: '2026-08-10T09:00:00.000Z',
-  },
-  {
-    id: 'api-auth',
-    title: 'API Authentication',
-    content:
-      'JWT tokens are issued on login and expire after 24h. Attach as `Authorization: Bearer <token>`. Refresh tokens are not implemented yet — re-login on expiry.',
-    projectId: 'p-1',
-    author: 'Achal',
-    updatedAt: '2026-08-15T14:30:00.000Z',
-  },
-]
 
 export const noteColors = ['#fff2a8', '#ffd6d6', '#d6ffe0', '#d6e8ff', '#ecd6ff'] as const
 export type NoteColor = (typeof noteColors)[number]
@@ -211,6 +195,11 @@ interface NewWikiPageInput {
   projectId?: string
 }
 
+export interface WikiResult {
+  ok: boolean
+  error?: string
+}
+
 export interface AuthResult {
   ok: boolean
   error?: string
@@ -272,10 +261,11 @@ interface AppState {
   assignProjectToTeam: (teamId: string, projectId: string) => void
   unassignProjectFromTeam: (teamId: string, projectId: string) => void
 
-  // Wiki (local until Phase 3)
-  addWikiPage: (input: NewWikiPageInput) => WikiPage
-  updateWikiPage: (id: string, input: { title: string; content: string }) => void
-  deleteWikiPage: (id: string) => void
+  // Wiki (API-backed since Phase 3)
+  loadWikiPages: () => Promise<void>
+  addWikiPage: (input: NewWikiPageInput) => Promise<WikiPage | null>
+  updateWikiPage: (id: string, input: { title: string; content: string }) => Promise<WikiResult>
+  deleteWikiPage: (id: string) => Promise<WikiResult>
 
   // Notifications (local until Phase 4)
   markNotificationRead: (id: number) => void
@@ -295,7 +285,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   sprints: [],
   members: [],
   teams: seedTeams,
-  wikiPages: seedWikiPages,
+  wikiPages: [],
   stickyNotes: seedStickyNotes,
   notifications: seedNotifications,
   settings: {
@@ -380,6 +370,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         apiListSprints(),
         apiListTasks(),
       ])
+
+      void get().loadWikiPages()
 
       const members = users.map(mapUser)
       const displayName = get().settings.displayName || members[0]?.name || ''
@@ -630,34 +622,74 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }))
   },
 
-  // ---------------- Wiki (local until Phase 3) ----------------
+  // ---------------- Wiki (API-backed) ----------------
 
-  addWikiPage: (input) => {
-    const id = input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `page-${Date.now()}`
-    const newPage: WikiPage = {
-      id,
-      title: input.title,
-      content: input.content,
-      projectId: input.projectId,
-      author: get().settings.displayName,
-      updatedAt: new Date().toISOString(),
+  loadWikiPages: async () => {
+    try {
+      const pages = await apiListWikiPages()
+      set({
+        wikiPages: pages.map((p) => ({
+          id: `w-${p.id}`,
+          title: p.title,
+          content: p.content ?? '',
+          projectId: p.projectId != null ? toProjectId(p.projectId) : undefined,
+          author: p.author ?? '',
+          updatedAt: p.updatedAt,
+        })),
+      })
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to load wiki') })
     }
-    set((state) => ({ wikiPages: [...state.wikiPages, newPage] }))
-    return newPage
   },
 
-  updateWikiPage: (id, input) => {
-    set((state) => ({
-      wikiPages: state.wikiPages.map((p) =>
-        p.id === id
-          ? { ...p, title: input.title, content: input.content, updatedAt: new Date().toISOString() }
-          : p,
-      ),
-    }))
+  addWikiPage: async (input) => {
+    try {
+      const created = await apiCreateWikiPage({
+        title: input.title,
+        content: input.content,
+        projectId: input.projectId ? parseId(input.projectId) : null,
+      })
+      const page: WikiPage = {
+        id: `w-${created.id}`,
+        title: created.title,
+        content: created.content ?? '',
+        projectId: created.projectId != null ? toProjectId(created.projectId) : undefined,
+        author: created.author ?? '',
+        updatedAt: created.updatedAt,
+      }
+      set((state) => ({ wikiPages: [...state.wikiPages, page] }))
+      return page
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to create page') })
+      return null
+    }
   },
 
-  deleteWikiPage: (id) => {
-    set((state) => ({ wikiPages: state.wikiPages.filter((p) => p.id !== id) }))
+  updateWikiPage: async (id, input) => {
+    try {
+      const updated = await apiUpdateWikiPage(parseId(id), {
+        title: input.title,
+        content: input.content,
+      })
+      set((state) => ({
+        wikiPages: state.wikiPages.map((p) =>
+          p.id === id ? { ...p, title: updated.title, content: updated.content ?? '', updatedAt: updated.updatedAt } : p,
+        ),
+      }))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Failed to save page') }
+    }
+  },
+
+  deleteWikiPage: async (id) => {
+    try {
+      await apiDeleteWikiPage(parseId(id))
+      set((state) => ({ wikiPages: state.wikiPages.filter((p) => p.id !== id) }))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Failed to delete page') }
+    }
   },
 
   // ---------------- Notifications (local until Phase 4) ----------------

@@ -16,11 +16,17 @@ export function NewWikiPageModal({
 
   const [title, setTitle] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-    const page = addWikiPage({ title: title.trim(), content: '', projectId: projectId || undefined })
+    setError('')
+    const page = await addWikiPage({ title: title.trim(), content: '', projectId: projectId || undefined })
+    if (!page) {
+      setError('Could not create the page. Please try again.')
+      return
+    }
     setTitle('')
     setProjectId('')
     onCreated({ id: page.id, title: page.title })
@@ -61,6 +67,7 @@ export function NewWikiPageModal({
         </div>
 
         <div className="mt-2 flex justify-end gap-2">
+          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
           <button
             type="button"
             onClick={onClose}

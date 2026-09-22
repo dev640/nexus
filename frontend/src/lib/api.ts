@@ -195,6 +195,44 @@ export async function apiUpdateTaskStatus(id: number, status: ApiTaskStatus): Pr
   return data
 }
 
+// ---------- Wiki ----------
+
+export interface ApiWikiPage {
+  id: number
+  title: string
+  content: string
+  author: string | null
+  projectId: number | null
+  projectName: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiWikiPageInput {
+  title: string
+  content: string
+  projectId?: number | null
+}
+
+export async function apiListWikiPages(): Promise<ApiWikiPage[]> {
+  const { data } = await api.get<ApiWikiPage[]>('/wiki')
+  return data
+}
+
+export async function apiCreateWikiPage(input: ApiWikiPageInput): Promise<ApiWikiPage> {
+  const { data } = await api.post<ApiWikiPage>('/wiki', input)
+  return data
+}
+
+export async function apiUpdateWikiPage(id: number, input: ApiWikiPageInput): Promise<ApiWikiPage> {
+  const { data } = await api.patch<ApiWikiPage>(`/wiki/${id}`, input)
+  return data
+}
+
+export async function apiDeleteWikiPage(id: number): Promise<void> {
+  await api.delete(`/wiki/${id}`)
+}
+
 /** Extract a human-readable message from an axios/network error. */
 export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {
