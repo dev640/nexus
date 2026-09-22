@@ -20,11 +20,17 @@ export function NewSprintModal({
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [committedPoints, setCommittedPoints] = useState(20)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!goal.trim() || !projectId || !startDate || !endDate) return
-    addSprint({ projectId, goal: goal.trim(), startDate, endDate, committedPoints })
+    setError('')
+    const created = await addSprint({ projectId, goal: goal.trim(), startDate, endDate, committedPoints })
+    if (!created) {
+      setError('Could not create the sprint. Check the dates and try again.')
+      return
+    }
     setGoal('')
     setStartDate('')
     setEndDate('')
@@ -104,6 +110,7 @@ export function NewSprintModal({
         </div>
 
         <div className="mt-2 flex justify-end gap-2">
+          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
           <button
             type="button"
             onClick={onClose}

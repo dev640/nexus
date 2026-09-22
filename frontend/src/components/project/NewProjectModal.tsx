@@ -10,11 +10,17 @@ export function NewProjectModal({ open, onClose }: { open: boolean; onClose: () 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [teamId, setTeamId] = useState('')
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-    const project = addProject({ name: name.trim(), description: description.trim() })
+    setError('')
+    const project = await addProject({ name: name.trim(), description: description.trim() })
+    if (!project) {
+      setError('Could not create the project. Is the backend running?')
+      return
+    }
     if (teamId) {
       assignProjectToTeam(teamId, project.id)
     }
@@ -69,6 +75,7 @@ export function NewProjectModal({ open, onClose }: { open: boolean; onClose: () 
           </select>
         </div>
         <div className="mt-2 flex justify-end gap-2">
+          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
           <button
             type="button"
             onClick={onClose}

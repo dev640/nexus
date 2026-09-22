@@ -30,6 +30,7 @@ export function NewTaskModal({
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM')
   const [storyPoints, setStoryPoints] = useState(3)
   const [assigneeId, setAssigneeId] = useState(defaultAssigneeId)
+  const [error, setError] = useState('')
 
   const projectSprints = sprints.filter((s) => s.projectId === projectId)
 
@@ -51,10 +52,11 @@ export function NewTaskModal({
     }
   }, [projectId, projectSprints, sprintId])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim() || !projectId) return
-    addTask({
+    setError('')
+    const created = await addTask({
       title: title.trim(),
       projectId,
       sprintId: sprintId || undefined,
@@ -63,6 +65,10 @@ export function NewTaskModal({
       storyPoints,
       assigneeId,
     })
+    if (!created) {
+      setError('Could not create the task. Please try again.')
+      return
+    }
     setTitle('')
     setStoryPoints(3)
     setSprintId('')
@@ -187,6 +193,7 @@ export function NewTaskModal({
         </div>
 
         <div className="mt-2 flex justify-end gap-2">
+          {error && <p className="mr-auto text-xs text-red-600">{error}</p>}
           <button
             type="button"
             onClick={onClose}

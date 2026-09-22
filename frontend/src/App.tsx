@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { Login } from './pages/Login'
@@ -21,6 +22,11 @@ import { Help } from './pages/Help'
 
 function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+  const bootstrapFromStoredToken = useAppStore((s) => s.bootstrapFromStoredToken)
+
+  useEffect(() => {
+    void bootstrapFromStoredToken()
+  }, [bootstrapFromStoredToken])
 
   if (!isAuthenticated) {
     return (

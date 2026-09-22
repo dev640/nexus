@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, TriangleAlert } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { useAppStore } from '../../store/useAppStore'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const location = useLocation()
+  const syncError = useAppStore((s) => s.syncError)
+  const isLoading = useAppStore((s) => s.isLoading)
 
   useEffect(() => {
     document.body.style.overflow = mobileNavOpen ? 'hidden' : ''
@@ -31,6 +34,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       <main key={location.pathname} className="animate-page-in flex-1 overflow-y-auto">
+        {syncError && (
+          <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+            <TriangleAlert size={14} strokeWidth={1.5} />
+            <span>{syncError}</span>
+            <button
+              onClick={() => useAppStore.setState({ syncError: null })}
+              className="ml-auto font-medium hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {isLoading && (
+          <div className="h-0.5 w-full overflow-hidden bg-paper">
+            <div className="h-full w-1/3 animate-pulse bg-ink/40" />
+          </div>
+        )}
         {children}
       </main>
     </div>

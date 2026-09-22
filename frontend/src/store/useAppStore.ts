@@ -1,49 +1,67 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import type { Member, Project, Sprint, SprintStatus, Task, TaskPriority, TaskStatus } from '../lib/mockData'
+import {
+  api,
+  apiCreateProject,
+  apiCreateSprint,
+  apiCreateTask,
+  apiErrorMessage,
+  apiListProjects,
+  apiListSprints,
+  apiListTasks,
+  apiListUsers,
+  apiLogin,
+  apiRegister,
+  apiUpdateSprintStatus,
+  apiUpdateTaskStatus,
+  getStoredToken,
+  storeToken,
+  type ApiUser,
+} from '../lib/api'
+import type {
+  Member,
+  Project,
+  Sprint,
+  SprintStatus,
+  Task,
+  TaskPriority,
+  TaskStatus,
+} from '../lib/mockData'
 
-const seedMembers: Member[] = [
-  { id: 'devendra', name: 'Devendra', initials: 'DF', role: 'Project Manager', utilization: 92 },
-  { id: 'achal', name: 'Achal', initials: 'AC', role: 'Backend Engineer', utilization: 64 },
-  { id: 'vidhi', name: 'Vidhi', initials: 'VD', role: 'Frontend Engineer', utilization: 81 },
-  { id: 'palak', name: 'Palak', initials: 'PL', role: 'QA Engineer', utilization: 43 },
-]
+// ---------------------------------------------------------------------------
+// ID mapping — the backend uses numeric IDs, the frontend historically used
+// string IDs. Prefixed strings keep them visually distinct and traceable.
+// ---------------------------------------------------------------------------
 
-const seedProjects: Project[] = [
-  {
-    id: 'ai-commerce',
-    name: 'AI Commerce Platform',
-    description: 'Building an intelligent commerce platform for independent retailers.',
-    status: 'ACTIVE',
-    health: 'ON_TRACK',
-    progress: 68,
-    sprintNumber: 8,
-    memberCount: 12,
-  },
-]
+const toProjectId = (n: number) => `p-${n}`
+const toSprintId = (n: number) => `s-${n}`
+const toTaskId = (n: number) => `t-${n}`
+const toUserId = (n: number) => `u-${n}`
 
-const seedTasks: Task[] = [
-  { id: 'TASK-184', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Design authentication flow', status: 'DONE', priority: 'HIGH', storyPoints: 5, assigneeId: 'vidhi', labels: ['design', 'auth'] },
-  { id: 'TASK-185', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Create PostgreSQL schema', status: 'DONE', priority: 'HIGH', storyPoints: 3, assigneeId: 'achal', labels: ['backend', 'database'] },
-  { id: 'TASK-186', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Implement JWT authentication', status: 'IN_PROGRESS', priority: 'URGENT', storyPoints: 8, assigneeId: 'achal', labels: ['backend', 'security'] },
-  { id: 'TASK-187', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Build project dashboard', status: 'IN_REVIEW', priority: 'MEDIUM', storyPoints: 8, assigneeId: 'vidhi', labels: ['frontend'] },
-  { id: 'TASK-188', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Integrate payment API', status: 'TODO', priority: 'URGENT', storyPoints: 13, assigneeId: 'achal', labels: ['backend', 'payments'], blocked: true },
-  { id: 'TASK-189', projectId: 'ai-commerce', title: 'Write API documentation', status: 'TODO', priority: 'LOW', storyPoints: 3, assigneeId: 'devendra', labels: ['docs'], aiGenerated: true },
-  { id: 'TASK-190', projectId: 'ai-commerce', sprintId: 'ai-commerce-sprint-8', title: 'Create QA test suite', status: 'TESTING', priority: 'HIGH', storyPoints: 5, assigneeId: 'palak', labels: ['qa'] },
-]
+function parseId(value: string): number {
+  const n = Number(String(value).replace(/^[a-z]+-/, ''))
+  if (!Number.isFinite(n)) {
+    throw new Error(`Invalid entity id: ${value}`)
+  }
+  return n
+}
 
-const seedSprints: Sprint[] = [
-  {
-    id: 'ai-commerce-sprint-8',
-    projectId: 'ai-commerce',
-    number: 8,
-    goal: 'Launch the billing foundation.',
-    startDate: '2026-08-18',
-    endDate: '2026-08-29',
-    committedPoints: 42,
-    status: 'ACTIVE',
-  },
-]
+function initialsOf(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
+function mapUser(u: ApiUser): Member {
+  return { id: toUserId(u.id), name: u.name, initials: initialsOf(u.name), role: u.role, utilization: 0 }
+}
+
+// ---------------------------------------------------------------------------
+// Local-only models (replaced by backend domains in later phases)
+// ---------------------------------------------------------------------------
 
 export interface Team {
   id: string
@@ -56,8 +74,8 @@ const seedTeams: Team[] = [
   {
     id: 'core-engineering',
     name: 'Core Engineering',
-    memberIds: ['devendra', 'achal', 'vidhi', 'palak'],
-    projectIds: ['ai-commerce'],
+    memberIds: ['u-1', 'u-2', 'u-3', 'u-4'],
+    projectIds: ['p-1'],
   },
 ]
 
@@ -84,7 +102,7 @@ const seedWikiPages: WikiPage[] = [
     title: 'API Authentication',
     content:
       'JWT tokens are issued on login and expire after 24h. Attach as `Authorization: Bearer <token>`. Refresh tokens are not implemented yet — re-login on expiry.',
-    projectId: 'ai-commerce',
+    projectId: 'p-1',
     author: 'Achal',
     updatedAt: '2026-08-15T14:30:00.000Z',
   },
@@ -129,6 +147,19 @@ const seedNotifications: Notification[] = [
   { id: 7, category: 'MENTIONS', text: 'Achal mentioned you in a comment on TASK-186', time: '2d ago', read: true, archived: false },
 ]
 
+export interface Settings {
+  displayName: string
+  role: string
+  defaultAssigneeId: string
+  mutedCategories: NotificationCategory[]
+}
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
+
+export type UserRole = 'ADMIN' | 'MEMBER'
+
 interface NewProjectInput {
   name: string
   description: string
@@ -163,86 +194,333 @@ interface NewWikiPageInput {
   projectId?: string
 }
 
-export interface Settings {
-  displayName: string
-  role: string
-  defaultAssigneeId: string
-  mutedCategories: NotificationCategory[]
+export interface AuthResult {
+  ok: boolean
+  error?: string
 }
-
-const defaultSettings: Settings = {
-  displayName: 'Devendra',
-  role: 'Project Manager',
-  defaultAssigneeId: 'devendra',
-  mutedCategories: [],
-}
-
-export type UserRole = 'ADMIN' | 'MEMBER'
 
 interface AppState {
+  // API-backed data
   projects: Project[]
   tasks: Task[]
-  teams: Team[]
   sprints: Sprint[]
-  notifications: Notification[]
   members: Member[]
+  // Local-only data (later phases move these to the backend)
+  teams: Team[]
   wikiPages: WikiPage[]
   stickyNotes: StickyNote[]
+  notifications: Notification[]
   settings: Settings
-  taskCounter: number
+
+  // Auth / sync state
   isAuthenticated: boolean
+  isBootstrapped: boolean
+  isLoading: boolean
+  syncError: string | null
+  currentUser: ApiUser | null
   userRole: UserRole
-  login: (role: UserRole) => void
+
+  // Auth
+  login: (email: string, password: string) => Promise<AuthResult>
+  register: (name: string, email: string, password: string) => Promise<AuthResult>
   logout: () => void
+  bootstrapFromStoredToken: () => Promise<void>
+
+  // Sync
+  loadWorkspace: () => Promise<void>
+
+  // Tasks
+  addTask: (input: NewTaskInput) => Promise<Task | null>
+  updateTaskStatus: (id: string, status: TaskStatus) => void
+
+  // Projects
+  addProject: (input: NewProjectInput) => Promise<Project | null>
+
+  // Sprints
+  addSprint: (input: NewSprintInput) => Promise<Sprint | null>
+  setSprintStatus: (sprintId: string, status: SprintStatus) => void
+
+  // Sticky notes (local until Phase 6)
   addStickyNote: (color: NoteColor) => StickyNote
   updateStickyNoteText: (id: string, text: string) => void
   moveStickyNote: (id: string, x: number, y: number) => void
   deleteStickyNote: (id: string) => void
+
+  // Members / teams (local until Phase 2/6)
   addMember: (input: NewMemberInput) => Member
-  addWikiPage: (input: NewWikiPageInput) => WikiPage
-  updateWikiPage: (id: string, input: { title: string; content: string }) => void
-  deleteWikiPage: (id: string) => void
-  addProject: (input: NewProjectInput) => Project
-  addTask: (input: NewTaskInput) => Task
-  updateTaskStatus: (id: string, status: TaskStatus) => void
   addTeam: (name: string) => Team
   deleteTeam: (teamId: string) => void
   addMemberToTeam: (teamId: string, memberId: string) => void
   removeMemberFromTeam: (teamId: string, memberId: string) => void
   assignProjectToTeam: (teamId: string, projectId: string) => void
   unassignProjectFromTeam: (teamId: string, projectId: string) => void
+
+  // Wiki (local until Phase 3)
+  addWikiPage: (input: NewWikiPageInput) => WikiPage
+  updateWikiPage: (id: string, input: { title: string; content: string }) => void
+  deleteWikiPage: (id: string) => void
+
+  // Notifications (local until Phase 4)
   markNotificationRead: (id: number) => void
   archiveNotification: (id: number) => void
-  addSprint: (input: NewSprintInput) => Sprint
-  setSprintStatus: (sprintId: string, status: SprintStatus) => void
+
+  // Settings (local until Phase 2)
   updateSettings: (input: Partial<Pick<Settings, 'displayName' | 'role' | 'defaultAssigneeId'>>) => void
   toggleMutedCategory: (category: NotificationCategory) => void
   resetWorkspace: () => void
 }
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-  projects: seedProjects,
-  tasks: seedTasks,
+export const useAppStore = create<AppState>()((set, get) => ({
+  projects: [],
+  tasks: [],
+  sprints: [],
+  members: [],
   teams: seedTeams,
-  sprints: seedSprints,
-  notifications: seedNotifications,
-  members: seedMembers,
   wikiPages: seedWikiPages,
   stickyNotes: seedStickyNotes,
-  settings: defaultSettings,
-  taskCounter: 191,
-  isAuthenticated: false,
+  notifications: seedNotifications,
+  settings: {
+    displayName: '',
+    role: '',
+    defaultAssigneeId: '',
+    mutedCategories: [],
+  },
+
+  isAuthenticated: Boolean(getStoredToken()),
+  isBootstrapped: false,
+  isLoading: false,
+  syncError: null,
+  currentUser: null,
   userRole: 'MEMBER',
 
-  login: (role) => {
-    set({ isAuthenticated: true, userRole: role })
+  // ---------------- Auth ----------------
+
+  login: async (email, password) => {
+    try {
+      const auth = await apiLogin(email, password)
+      storeToken(auth.token)
+      set({
+        isAuthenticated: true,
+        currentUser: auth.user,
+        userRole: auth.user.role,
+        settings: { ...get().settings, displayName: auth.user.name, role: auth.user.role },
+      })
+      await get().loadWorkspace()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Login failed') }
+    }
+  },
+
+  register: async (name, email, password) => {
+    try {
+      const auth = await apiRegister(name, email, password)
+      storeToken(auth.token)
+      set({
+        isAuthenticated: true,
+        currentUser: auth.user,
+        userRole: auth.user.role,
+        settings: { ...get().settings, displayName: auth.user.name, role: auth.user.role },
+      })
+      await get().loadWorkspace()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Registration failed') }
+    }
   },
 
   logout: () => {
-    set({ isAuthenticated: false, userRole: 'MEMBER' })
+    storeToken(null)
+    api.defaults.headers.common['Authorization'] = undefined
+    set({
+      isAuthenticated: false,
+      currentUser: null,
+      userRole: 'MEMBER',
+      isBootstrapped: false,
+      projects: [],
+      tasks: [],
+      sprints: [],
+      members: [],
+      syncError: null,
+    })
   },
+
+  bootstrapFromStoredToken: async () => {
+    if (!getStoredToken() || get().isBootstrapped) return
+    await get().loadWorkspace()
+  },
+
+  // ---------------- Sync ----------------
+
+  loadWorkspace: async () => {
+    set({ isLoading: true, syncError: null })
+    try {
+      const [users, projects, sprints, tasks] = await Promise.all([
+        apiListUsers(),
+        apiListProjects(),
+        apiListSprints(),
+        apiListTasks(),
+      ])
+
+      const members = users.map(mapUser)
+      const displayName = get().settings.displayName || members[0]?.name || ''
+
+      set({
+        members,
+        projects: projects.map((p) => ({
+          id: toProjectId(p.id),
+          name: p.name,
+          description: p.description ?? '',
+          status: p.status,
+          health: p.health,
+          progress: p.progress,
+          sprintNumber: p.sprintNumber,
+          memberCount: p.memberCount,
+        })),
+        sprints: sprints.map((s) => ({
+          id: toSprintId(s.id),
+          projectId: toProjectId(s.projectId),
+          number: s.number,
+          goal: s.goal,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          committedPoints: s.committedPoints,
+          status: s.status,
+        })),
+        tasks: tasks.map((t) => ({
+          id: toTaskId(t.id),
+          projectId: toProjectId(t.projectId),
+          sprintId: t.sprintId != null ? toSprintId(t.sprintId) : undefined,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          storyPoints: t.storyPoints ?? 0,
+          assigneeId: t.assignee ? toUserId(t.assignee.id) : '',
+          labels: t.labels ?? [],
+        })),
+        settings: { ...get().settings, displayName },
+        isBootstrapped: true,
+        isLoading: false,
+      })
+    } catch (err) {
+      set({ isLoading: false, isBootstrapped: true, syncError: apiErrorMessage(err, 'Failed to load workspace') })
+    }
+  },
+
+  // ---------------- Tasks ----------------
+
+  addTask: async (input) => {
+    try {
+      const created = await apiCreateTask({
+        title: input.title,
+        projectId: parseId(input.projectId),
+        sprintId: input.sprintId ? parseId(input.sprintId) : null,
+        status: input.status,
+        priority: input.priority,
+        storyPoints: input.storyPoints,
+        assigneeId: input.assigneeId ? parseId(input.assigneeId) : null,
+        labels: [],
+      })
+      const task: Task = {
+        id: toTaskId(created.id),
+        projectId: toProjectId(created.projectId),
+        sprintId: created.sprintId != null ? toSprintId(created.sprintId) : undefined,
+        title: created.title,
+        status: created.status,
+        priority: created.priority,
+        storyPoints: created.storyPoints ?? 0,
+        assigneeId: created.assignee ? toUserId(created.assignee.id) : '',
+        labels: created.labels ?? [],
+      }
+      set((state) => ({ tasks: [...state.tasks, task] }))
+      return task
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to create task') })
+      return null
+    }
+  },
+
+  updateTaskStatus: (id, status) => {
+    // Optimistic update with rollback on failure.
+    const previous = get().tasks
+    set({
+      tasks: previous.map((t) => (t.id === id ? { ...t, status } : t)),
+      syncError: null,
+    })
+    apiUpdateTaskStatus(parseId(id), status).catch((err) => {
+      set({ tasks: previous, syncError: apiErrorMessage(err, 'Failed to update task') })
+    })
+  },
+
+  // ---------------- Projects ----------------
+
+  addProject: async (input) => {
+    try {
+      const created = await apiCreateProject({ name: input.name, description: input.description })
+      const project: Project = {
+        id: toProjectId(created.id),
+        name: created.name,
+        description: created.description ?? '',
+        status: created.status,
+        health: created.health,
+        progress: created.progress,
+        sprintNumber: created.sprintNumber,
+        memberCount: created.memberCount,
+      }
+      set((state) => ({ projects: [...state.projects, project] }))
+      return project
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to create project') })
+      return null
+    }
+  },
+
+  // ---------------- Sprints ----------------
+
+  addSprint: async (input) => {
+    try {
+      const created = await apiCreateSprint({
+        projectId: parseId(input.projectId),
+        goal: input.goal,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        committedPoints: input.committedPoints,
+      })
+      const sprint: Sprint = {
+        id: toSprintId(created.id),
+        projectId: toProjectId(created.projectId),
+        number: created.number,
+        goal: created.goal,
+        startDate: created.startDate,
+        endDate: created.endDate,
+        committedPoints: created.committedPoints,
+        status: created.status,
+      }
+      set((state) => ({
+        sprints: [...state.sprints, sprint],
+        projects: state.projects.map((p) =>
+          p.id === sprint.projectId ? { ...p, sprintNumber: sprint.number } : p,
+        ),
+      }))
+      return sprint
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to create sprint') })
+      return null
+    }
+  },
+
+  setSprintStatus: (sprintId, status) => {
+    const previous = get().sprints
+    set({
+      sprints: previous.map((s) => (s.id === sprintId ? { ...s, status } : s)),
+      syncError: null,
+    })
+    apiUpdateSprintStatus(parseId(sprintId), status).catch((err) => {
+      set({ sprints: previous, syncError: apiErrorMessage(err, 'Failed to update sprint') })
+    })
+  },
+
+  // ---------------- Sticky notes (local until Phase 6) ----------------
 
   addStickyNote: (color) => {
     const newNote: StickyNote = {
@@ -273,87 +551,13 @@ export const useAppStore = create<AppState>()(
     set((state) => ({ stickyNotes: state.stickyNotes.filter((n) => n.id !== id) }))
   },
 
-  addWikiPage: (input) => {
-    const id = input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `page-${Date.now()}`
-    const newPage: WikiPage = {
-      id,
-      title: input.title,
-      content: input.content,
-      projectId: input.projectId,
-      author: get().settings.displayName,
-      updatedAt: new Date().toISOString(),
-    }
-    set((state) => ({ wikiPages: [...state.wikiPages, newPage] }))
-    return newPage
-  },
-
-  updateWikiPage: (id, input) => {
-    set((state) => ({
-      wikiPages: state.wikiPages.map((p) =>
-        p.id === id
-          ? { ...p, title: input.title, content: input.content, updatedAt: new Date().toISOString() }
-          : p,
-      ),
-    }))
-  },
-
-  deleteWikiPage: (id) => {
-    set((state) => ({ wikiPages: state.wikiPages.filter((p) => p.id !== id) }))
-  },
+  // ---------------- Members / teams (local) ----------------
 
   addMember: (input) => {
     const id = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `member-${Date.now()}`
-    const initials = input.name
-      .trim()
-      .split(/\s+/)
-      .map((part) => part[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase()
-    const newMember: Member = { id, name: input.name, initials, role: input.role, utilization: 0 }
+    const newMember: Member = { id, name: input.name, initials: initialsOf(input.name), role: input.role, utilization: 0 }
     set((state) => ({ members: [...state.members, newMember] }))
     return newMember
-  },
-
-  addProject: (input) => {
-    const newProject: Project = {
-      id: input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `project-${Date.now()}`,
-      name: input.name,
-      description: input.description,
-      status: 'PLANNING',
-      health: 'ON_TRACK',
-      progress: 0,
-      sprintNumber: 0,
-      memberCount: 1,
-    }
-    set((state) => ({ projects: [...state.projects, newProject] }))
-    return newProject
-  },
-
-  addTask: (input) => {
-    const id = `TASK-${get().taskCounter}`
-    const newTask: Task = {
-      id,
-      projectId: input.projectId,
-      sprintId: input.sprintId,
-      title: input.title,
-      status: input.status,
-      priority: input.priority,
-      storyPoints: input.storyPoints,
-      assigneeId: input.assigneeId,
-      labels: [],
-    }
-    set((state) => ({
-      tasks: [...state.tasks, newTask],
-      taskCounter: state.taskCounter + 1,
-    }))
-    return newTask
-  },
-
-  updateTaskStatus: (id, status) => {
-    set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === id ? { ...t, status } : t)),
-    }))
   },
 
   addTeam: (name) => {
@@ -407,6 +611,38 @@ export const useAppStore = create<AppState>()(
     }))
   },
 
+  // ---------------- Wiki (local until Phase 3) ----------------
+
+  addWikiPage: (input) => {
+    const id = input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `page-${Date.now()}`
+    const newPage: WikiPage = {
+      id,
+      title: input.title,
+      content: input.content,
+      projectId: input.projectId,
+      author: get().settings.displayName,
+      updatedAt: new Date().toISOString(),
+    }
+    set((state) => ({ wikiPages: [...state.wikiPages, newPage] }))
+    return newPage
+  },
+
+  updateWikiPage: (id, input) => {
+    set((state) => ({
+      wikiPages: state.wikiPages.map((p) =>
+        p.id === id
+          ? { ...p, title: input.title, content: input.content, updatedAt: new Date().toISOString() }
+          : p,
+      ),
+    }))
+  },
+
+  deleteWikiPage: (id) => {
+    set((state) => ({ wikiPages: state.wikiPages.filter((p) => p.id !== id) }))
+  },
+
+  // ---------------- Notifications (local until Phase 4) ----------------
+
   markNotificationRead: (id) => {
     set((state) => ({
       notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -419,33 +655,7 @@ export const useAppStore = create<AppState>()(
     }))
   },
 
-  addSprint: (input) => {
-    const existingForProject = get().sprints.filter((s) => s.projectId === input.projectId)
-    const number = existingForProject.length + 1
-    const newSprint: Sprint = {
-      id: `${input.projectId}-sprint-${number}`,
-      projectId: input.projectId,
-      number,
-      goal: input.goal,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      committedPoints: input.committedPoints,
-      status: 'PLANNED',
-    }
-    set((state) => ({
-      sprints: [...state.sprints, newSprint],
-      projects: state.projects.map((p) =>
-        p.id === input.projectId ? { ...p, sprintNumber: number } : p,
-      ),
-    }))
-    return newSprint
-  },
-
-  setSprintStatus: (sprintId, status) => {
-    set((state) => ({
-      sprints: state.sprints.map((s) => (s.id === sprintId ? { ...s, status } : s)),
-    }))
-  },
+  // ---------------- Settings (local until Phase 2) ----------------
 
   updateSettings: (input) => {
     set((state) => ({ settings: { ...state.settings, ...input } }))
@@ -463,20 +673,6 @@ export const useAppStore = create<AppState>()(
   },
 
   resetWorkspace: () => {
-    set({
-      projects: seedProjects,
-      tasks: seedTasks,
-      teams: seedTeams,
-      sprints: seedSprints,
-      notifications: seedNotifications,
-      members: seedMembers,
-      wikiPages: seedWikiPages,
-      stickyNotes: seedStickyNotes,
-      settings: defaultSettings,
-      taskCounter: 191,
-    })
+    void get().loadWorkspace()
   },
-    }),
-    { name: 'nexus-storage' },
-  ),
-)
+}))

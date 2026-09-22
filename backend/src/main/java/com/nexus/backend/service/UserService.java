@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -63,6 +65,13 @@ public class UserService {
             refreshToken,
             mapToResponse(user)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> findAll() {
+        return userRepository.findAll().stream()
+            .map(this::mapToResponse)
+            .toList();
     }
 
     public UserResponse findById(Long id) {
