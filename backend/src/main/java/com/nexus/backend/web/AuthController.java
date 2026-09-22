@@ -27,4 +27,14 @@ public class AuthController {
         AuthResponse response = userService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(userService.refresh(request.refreshToken()));
+    }
+
+    public record RefreshRequest(
+        @jakarta.validation.constraints.NotBlank(message = "Refresh token is required")
+        String refreshToken
+    ) {}
 }

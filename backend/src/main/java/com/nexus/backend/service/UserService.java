@@ -67,6 +67,22 @@ public class UserService {
         );
     }
 
+    /** Exchange a valid refresh token for a fresh access token. */
+    public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank() || !jwtUtil.isRefreshToken(refreshToken)) {
+            throw new ValidationException("Invalid or expired refresh token");
+        }
+        String email = jwtUtil.extractUsername(refreshToken);
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ValidationException("Invalid or expired refresh token"));
+
+        return new AuthResponse(
+            jwtUtil.generateToken(user.getEmail()),
+            jwtUtil.generateRefreshToken(user.getEmail()),
+            mapToResponse(user)
+        );
+    }
+
     @Transactional(readOnly = true)
     public List<UserResponse> findAll() {
         return userRepository.findAll().stream()

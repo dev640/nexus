@@ -54,13 +54,19 @@ public class JwtUtil {
         return extractExpiration(token).before(new Date());
     }
 
+    private static final String CLAIM_TYPE = "type";
+    private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_REFRESH = "refresh";
+
     public String generateToken(String username) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put(CLAIM_TYPE, TYPE_ACCESS);
         return createToken(claims, username, expiration);
     }
 
     public String generateRefreshToken(String username) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put(CLAIM_TYPE, TYPE_REFRESH);
         return createToken(claims, username, refreshExpiration);
     }
 
@@ -74,8 +80,23 @@ public class JwtUtil {
                 .compact();
     }
 
+    /**
+     * Valid token for normal API authentication.
+     * Refresh tokens are rejected: they may only be exchanged for a new access token.
+     */
     public Boolean validateToken(String token, String username) {
         final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(username) && !isTokenExpired(token));
+        if (!extractedUsername.equals(username) || isTokenExpired(token)) {
+            return false;
+        }
+        String type = extractClaim(token, claims -> claims.get(CLAIM_TYPE, String.class));
+        // Tokens issued before the type claim existed are treated as access tokens.
+        return type == null || TYPE_ACCESS.equals(type);
+    }
+
+    /** True when the token is a well-formed, unexpired refresh token. */
+    public boolean isRefreshToken(String token) {
+        String type = extractClaim(token, claims -> claims.get(CLAIM_TYPE, String.class));
+        return TYPE_REFRESH.equals(type) && !isTokenExpired(token);
     }
 }
