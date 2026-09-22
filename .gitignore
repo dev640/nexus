@@ -12,4 +12,5 @@ frontend/.vercel
 !.env.example
 *.log
 .claude/
+.vscode/
 
