@@ -96,15 +96,32 @@ public class WhiteboardSocketConfig implements WebSocketConfigurer {
 
     /**
      * Relays events published by other instances to this instance's clients.
-     * Optional: if Redis is not reachable the app still runs, single-instance.
+     *
+     * Redis is optional: a single-instance deployment works with no Redis at all. This
+     * container is started lazily and must not fail the application when Redis is absent
+     * or unreachable (a managed Redis plugin that is still provisioning, for example) —
+     * in that case the app runs without cross-instance fan-out and retries on restart.
      */
     @Bean
     public RedisMessageListenerContainer whiteboardRedisListener(
-        RedisConnectionFactory connectionFactory,
+        org.springframework.beans.factory.ObjectProvider<RedisConnectionFactory> connectionFactoryProvider,
         WhiteboardBroadcaster broadcaster
     ) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setAutoStartup(false);
+        RedisConnectionFactory connectionFactory = connectionFactoryProvider.getIfAvailable();
+        if (connectionFactory == null) {
+            log.info("No Redis connection factory configured - whiteboard runs single-instance");
+            return container;
+        }
         container.setConnectionFactory(connectionFactory);
+        container.setTaskExecutor(runnable -> {
+            try {
+                runnable.run();
+            } catch (Exception e) {
+                log.warn("Whiteboard Redis listener stopped (cross-instance fan-out disabled): {}", e.getMessage());
+            }
+        });
         container.addMessageListener(
             (message, pattern) -> {
                 try {
@@ -119,6 +136,13 @@ public class WhiteboardSocketConfig implements WebSocketConfigurer {
             },
             new ChannelTopic(WhiteboardBroadcaster.CHANNEL)
         );
+        // Start asynchronously: a missing/unreachable Redis logs a warning instead of
+        // aborting application startup.
+        try {
+            container.start();
+        } catch (Exception e) {
+            log.warn("Redis fan-out unavailable at startup (whiteboard runs single-instance): {}", e.getMessage());
+        }
         return container;
     }
 }
