@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { aiBrief } from '../lib/mockData'
+import { apiErrorMessage, apiGetAnalyticsOverview, type ApiAnalyticsOverview } from '../lib/api'
 
 interface ChatMessage {
   id: number
@@ -11,85 +10,105 @@ interface ChatMessage {
 const suggestedPrompts = [
   'What is blocking the sprint?',
   'Summarize urgent tasks',
-  'How is Sprint 8 tracking?',
+  'How is the active sprint tracking?',
   'Who is overloaded right now?',
 ]
 
-export function AICopilot() {
-  const tasks = useAppStore((s) => s.tasks)
-  const sprints = useAppStore((s) => s.sprints)
-  const members = useAppStore((s) => s.members)
-  const projects = useAppStore((s) => s.projects)
+/** Cheap deterministic reply builder grounded in live analytics data. */
+function buildReply(question: string, data: ApiAnalyticsOverview): string {
+  const q = question.toLowerCase()
+  const risks = data.risks
+  const summary = data.summary
 
-  const blockedTasks = tasks.filter((t) => t.blocked)
-  const urgentTasks = tasks.filter((t) => t.priority === 'URGENT')
-  const aiGeneratedTasks = tasks.filter((t) => t.aiGenerated)
-  const activeSprint = sprints.find((s) => s.status === 'ACTIVE') ?? sprints[sprints.length - 1]
-  const overloaded = members.filter((m) => m.utilization > 85)
-
-  function generateReply(question: string): string {
-    const q = question.toLowerCase()
-
-    if (q.includes('block')) {
-      if (blockedTasks.length === 0) return 'Nothing is currently blocked. Clear runway ahead.'
-      return `${blockedTasks.length} task${blockedTasks.length > 1 ? 's are' : ' is'} blocked: ${blockedTasks
-        .map((t) => `${t.id} (${t.title})`)
-        .join(', ')}.`
-    }
-
-    if (q.includes('urgent') || q.includes('priority')) {
-      if (urgentTasks.length === 0) return 'No urgent-priority tasks right now.'
-      return `${urgentTasks.length} urgent task${urgentTasks.length > 1 ? 's' : ''}: ${urgentTasks
-        .map((t) => t.title)
-        .join(', ')}.`
-    }
-
-    if (q.includes('sprint')) {
-      if (!activeSprint) return 'No active sprint yet — create one from the Sprints page.'
-      const project = projects.find((p) => p.id === activeSprint.projectId)
-      const completed = tasks
-        .filter((t) => t.sprintId === activeSprint.id && t.status === 'DONE')
-        .reduce((sum, t) => sum + t.storyPoints, 0)
-      const pct = activeSprint.committedPoints > 0 ? Math.round((completed / activeSprint.committedPoints) * 100) : 0
-      return `${project?.name ?? 'Project'} Sprint ${activeSprint.number} is ${pct}% complete (${completed}/${activeSprint.committedPoints} points). Goal: ${activeSprint.goal}`
-    }
-
-    if (q.includes('overload') || q.includes('capacity') || q.includes('workload')) {
-      if (overloaded.length === 0) return 'No one is over 85% utilization — workload looks balanced.'
-      return `${overloaded.map((m) => `${m.name} (${m.utilization}%)`).join(', ')} ${
-        overloaded.length > 1 ? 'are' : 'is'
-      } running hot. Consider redistributing tasks.`
-    }
-
-    return aiBrief
+  if (q.includes('block') || q.includes('risk')) {
+    if (risks.length === 0) return 'No risks detected right now — nothing is blocked or stalled.'
+    const top = risks.slice(0, 4).map((r) => `"${r.title}" (${r.reason})`)
+    return `${risks.length} risk${risks.length > 1 ? 's' : ''} detected in real task data: ${top.join('; ')}.`
   }
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 0, role: 'ai', text: aiBrief },
-  ])
+  if (q.includes('urgent') || q.includes('priority')) {
+    const urgentRisks = risks.filter((r) => r.priority === 'URGENT')
+    if (urgentRisks.length === 0) {
+      return 'No urgent-priority work is at risk. Urgent work that has already started is on track.'
+    }
+    return `${urgentRisks.length} urgent task${urgentRisks.length > 1 ? 's' : ''} need attention: ${urgentRisks
+      .map((r) => r.title)
+      .join(', ')}.`
+  }
+
+  if (q.includes('sprint') || q.includes('track') || q.includes('velocity')) {
+    const latest = data.velocity.perSprint[data.velocity.perSprint.length - 1]
+    if (!latest) return 'No sprint data yet — create a sprint from the Sprints page.'
+    const pct = latest.committedPoints > 0
+      ? Math.round((latest.donePoints / latest.committedPoints) * 100)
+      : 0
+    return `Sprint ${latest.number} ("${latest.goal}") is ${pct}% complete — ${latest.donePoints} of ${latest.committedPoints} committed points done. Overall completion across ${summary.totalTasks} tasks is ${summary.completionRate}%.`
+  }
+
+  if (q.includes('overload') || q.includes('capacity') || q.includes('workload') || q.includes('who')) {
+    if (data.teamLoad.length === 0) return 'No open assigned work — nobody is carrying a backlog.'
+    const [top, ...rest] = data.teamLoad
+    const others = rest.slice(0, 2).map((m) => `${m.name} (${m.openPoints} pts)`)
+    return `${top.name} is carrying the most open work at ${top.openPoints} points across ${top.openTasks} task${top.openTasks === 1 ? '' : 's'}${others.length ? `. Also loaded: ${others.join(', ')}` : ''}.`
+  }
+
+  return `Right now there are ${summary.totalTasks} tasks with a ${summary.completionRate}% completion rate, ${risks.length} detected risk${risks.length === 1 ? '' : 's'}, and ${data.teamLoad.length} people with open work. Ask about blockers, urgent items, sprint progress, or workload.`
+}
+
+export function AICopilot() {
+  const [data, setData] = useState<ApiAnalyticsOverview | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiGetAnalyticsOverview()
+      .then((overview) => {
+        if (cancelled) return
+        setData(overview)
+        setMessages([
+          {
+            id: 0,
+            role: 'ai',
+            text: buildReply('overview', overview),
+          },
+        ])
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(apiErrorMessage(err, 'Failed to load project data'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
+  const counterRef = useRef(1)
+
   function send(text: string) {
     const trimmed = text.trim()
-    if (!trimmed) return
-    const baseId = send.key
-    send.key = baseId + 1
+    if (!trimmed || !data) return
+    const baseId = counterRef.current
+    counterRef.current = baseId + 2
     const userMsg: ChatMessage = { id: baseId, role: 'user', text: trimmed }
-    const aiMsg: ChatMessage = { id: baseId + 1, role: 'ai', text: generateReply(trimmed) }
+    const aiMsg: ChatMessage = { id: baseId + 1, role: 'ai', text: buildReply(trimmed, data) }
     setMessages((prev) => [...prev, userMsg, aiMsg])
     setInput('')
   }
-  send.key = 1
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     send(input)
   }
+
+  const risks = data?.risks ?? []
+  const teamLoad = data?.teamLoad ?? []
+  const latestSprint = data?.velocity.perSprint[data.velocity.perSprint.length - 1]
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
@@ -98,9 +117,14 @@ export function AICopilot() {
         AI Copilot
       </h1>
 
+      {loadError && (
+        <div className="mt-6 border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>
+      )}
+
       <div className="mt-10 flex flex-col gap-6 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col border border-line bg-white">
           <div ref={scrollRef} className="flex h-[440px] flex-col gap-3 overflow-y-auto p-6">
+            {!data && !loadError && <p className="text-sm text-mute">Loading project data…</p>}
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -121,7 +145,8 @@ export function AICopilot() {
                 <button
                   key={p}
                   onClick={() => send(p)}
-                  className="rounded-full border border-line px-3 py-1 text-xs text-mute hover:bg-paper"
+                  disabled={!data}
+                  className="rounded-full border border-line px-3 py-1 text-xs text-mute hover:bg-paper disabled:opacity-50"
                 >
                   {p}
                 </button>
@@ -136,27 +161,31 @@ export function AICopilot() {
               />
               <button
                 type="submit"
-                className="shrink-0 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black"
+                disabled={!data}
+                className="shrink-0 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
               >
                 Send
               </button>
             </form>
+            <p className="mt-2 text-[11px] text-mute">
+              Answers are computed from live task, sprint and workload data — no external AI service.
+            </p>
           </div>
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-4 lg:w-72">
           <div className="border border-line bg-white p-5">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-mute">
-              Blocked
+              Detected Risks
             </h2>
-            {blockedTasks.length === 0 ? (
-              <p className="text-sm text-mute">Nothing blocked.</p>
+            {risks.length === 0 ? (
+              <p className="text-sm text-mute">No risks detected.</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {blockedTasks.map((t) => (
-                  <div key={t.id} className="text-sm">
-                    <span className="mr-2 font-mono text-xs text-mute">{t.id}</span>
-                    {t.title}
+                {risks.slice(0, 5).map((r) => (
+                  <div key={r.taskId} className="text-sm">
+                    <div className="font-medium text-ink">{r.title}</div>
+                    <div className="text-xs text-mute">{r.reason}</div>
                   </div>
                 ))}
               </div>
@@ -165,18 +194,31 @@ export function AICopilot() {
 
           <div className="border border-line bg-white p-5">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-mute">
-              AI-Generated Tasks
+              Sprint Progress
             </h2>
-            {aiGeneratedTasks.length === 0 ? (
-              <p className="text-sm text-mute">None yet.</p>
+            {!latestSprint ? (
+              <p className="text-sm text-mute">No sprint data yet.</p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {aiGeneratedTasks.map((t) => (
-                  <div key={t.id} className="text-sm">
-                    <span className="mr-2 font-mono text-xs text-mute">{t.id}</span>
-                    {t.title}
-                  </div>
-                ))}
+              <div className="text-sm">
+                <div className="font-medium text-ink">
+                  Sprint {latestSprint.number}
+                </div>
+                <div className="mt-1 text-xs text-mute">{latestSprint.goal}</div>
+                <div className="mt-3 h-2 w-full rounded-full bg-line">
+                  <div
+                    className="h-2 rounded-full bg-info"
+                    style={{
+                      width: `${
+                        latestSprint.committedPoints > 0
+                          ? Math.min(100, Math.round((latestSprint.donePoints / latestSprint.committedPoints) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-1 text-xs text-mute">
+                  {latestSprint.donePoints} / {latestSprint.committedPoints} points
+                </div>
               </div>
             )}
           </div>
@@ -185,16 +227,18 @@ export function AICopilot() {
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-mute">
               Team Capacity
             </h2>
-            <div className="flex flex-col gap-2">
-              {members.map((m) => (
-                <div key={m.id} className="flex justify-between text-sm">
-                  <span>{m.name}</span>
-                  <span className={m.utilization > 85 ? 'font-medium text-danger' : 'text-mute'}>
-                    {m.utilization}%
-                  </span>
-                </div>
-              ))}
-            </div>
+            {teamLoad.length === 0 ? (
+              <p className="text-sm text-mute">No open assigned work.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {teamLoad.map((m) => (
+                  <div key={m.userId} className="flex justify-between text-sm">
+                    <span>{m.name}</span>
+                    <span className="text-mute">{m.openPoints} pts · {m.openTasks} open</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

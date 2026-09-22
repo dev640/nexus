@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import type { TaskStatus, TaskPriority } from '../lib/mockData'
+import { apiErrorMessage, apiGetAnalyticsOverview, type ApiAnalyticsOverview } from '../lib/api'
 
-const statusOrder: { key: TaskStatus; label: string }[] = [
+const statusOrder: { key: string; label: string }[] = [
   { key: 'BACKLOG', label: 'Backlog' },
   { key: 'TODO', label: 'To Do' },
   { key: 'IN_PROGRESS', label: 'In Progress' },
@@ -10,7 +11,7 @@ const statusOrder: { key: TaskStatus; label: string }[] = [
   { key: 'DONE', label: 'Done' },
 ]
 
-const priorityOrder: { key: TaskPriority; label: string; barColor: string; textColor: string }[] = [
+const priorityOrder: { key: string; label: string; barColor: string; textColor: string }[] = [
   { key: 'LOW', label: 'Low', barColor: 'bg-mute', textColor: 'text-mute' },
   { key: 'MEDIUM', label: 'Medium', barColor: 'bg-info', textColor: 'text-info' },
   { key: 'HIGH', label: 'High', barColor: 'bg-warning', textColor: 'text-warning' },
@@ -54,45 +55,69 @@ function BarRow({
 
 export function Analytics() {
   const projects = useAppStore((s) => s.projects)
-  const tasks = useAppStore((s) => s.tasks)
-  const sprints = useAppStore((s) => s.sprints)
-  const members = useAppStore((s) => s.members)
+  const [data, setData] = useState<ApiAnalyticsOverview | null>(null)
+  const [error, setError] = useState('')
 
-  const totalTasks = tasks.length
-  const doneTasks = tasks.filter((t) => t.status === 'DONE').length
-  const completionRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
-  const activeSprints = sprints.filter((s) => s.status === 'ACTIVE').length
-  const blockedTasks = tasks.filter((t) => t.blocked).length
+  useEffect(() => {
+    let cancelled = false
+    apiGetAnalyticsOverview()
+      .then((overview) => {
+        if (!cancelled) setData(overview)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(apiErrorMessage(err, 'Failed to load analytics'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (error) {
+    return (
+      <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
+        <div className="mb-1 text-xs font-medium uppercase tracking-widest text-mute">Insights</div>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">Analytics</h1>
+        <div className="mt-8 border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
+        <div className="mb-1 text-xs font-medium uppercase tracking-widest text-mute">Insights</div>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">Analytics</h1>
+        <div className="mt-8 text-sm text-mute">Loading analytics…</div>
+      </div>
+    )
+  }
+
+  const totalTasks = data.summary.totalTasks
+  const doneTasks = data.summary.doneTasks
+  const completionRate = data.summary.completionRate
 
   const statusCounts = statusOrder.map((s) => ({
     ...s,
-    count: tasks.filter((t) => t.status === s.key).length,
+    count: data.statusBreakdown.find((x) => x.status === s.key)?.count ?? 0,
   }))
   const maxStatusCount = Math.max(...statusCounts.map((s) => s.count), 1)
 
   const priorityCounts = priorityOrder.map((p) => ({
     ...p,
-    count: tasks.filter((t) => t.priority === p.key).length,
+    count: data.priorityBreakdown.find((x) => x.priority === p.key)?.count ?? 0,
   }))
   const maxPriorityCount = Math.max(...priorityCounts.map((p) => p.count), 1)
 
-  const sprintRows = sprints
-    .map((sprint) => {
-      const project = projects.find((p) => p.id === sprint.projectId)
-      const completedPoints = tasks
-        .filter((t) => t.sprintId === sprint.id && t.status === 'DONE')
-        .reduce((sum, t) => sum + t.storyPoints, 0)
-      return {
-        id: sprint.id,
-        label: `${project?.name ?? 'Unknown'} · Sprint ${sprint.number}`,
-        committed: sprint.committedPoints,
-        completed: completedPoints,
-      }
-    })
-    .sort((a, b) => b.committed - a.committed)
+  const sprintRows = data.velocity.perSprint.map((s) => ({
+    id: s.sprintId,
+    label: `Sprint ${s.number} · ${s.goal}`,
+    committed: s.committedPoints,
+    completed: s.donePoints,
+  }))
   const maxSprintPoints = Math.max(...sprintRows.map((s) => Math.max(s.committed, s.completed)), 1)
 
-  const maxUtilization = Math.max(...members.map((m) => m.utilization), 1)
+  const teamLoad = data.teamLoad
+  const maxLoad = Math.max(...teamLoad.map((m) => m.openPoints), 1)
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
@@ -106,8 +131,7 @@ export function Analytics() {
           value={`${completionRate}%`}
           sub={`${doneTasks} of ${totalTasks} done`}
         />
-        <StatTile label="Active Sprints" value={String(activeSprints)} sub={`${sprints.length} total`} />
-        <StatTile label="Blocked Tasks" value={String(blockedTasks)} />
+        <StatTile label="Open Risks" value={String(data.risks.length)} sub="detected by Copilot rules" />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
@@ -154,6 +178,12 @@ export function Analytics() {
               ))}
             </div>
           )}
+          {data.summary.committedPointsActiveSprint > 0 && (
+            <p className="mt-4 border-t border-line pt-3 text-xs text-mute">
+              Active sprint: {data.summary.donePointsActiveSprint} of
+              {' '}{data.summary.committedPointsActiveSprint} committed points done.
+            </p>
+          )}
         </section>
 
         <section className="border border-line bg-white p-6">
@@ -197,19 +227,36 @@ export function Analytics() {
             Team Workload
           </h2>
           <div className="flex flex-col gap-3">
-            {members.map((m) => (
+            {teamLoad.length === 0 && <p className="text-sm text-mute">No assigned open tasks.</p>}
+            {teamLoad.map((m) => (
               <BarRow
-                key={m.id}
+                key={m.userId}
                 label={m.name}
-                value={m.utilization}
-                max={maxUtilization}
-                color={m.utilization > 85 ? 'bg-danger' : 'bg-ink'}
-                valueLabel={`${m.utilization}%`}
+                value={m.openPoints}
+                max={maxLoad}
+                color={m.openPoints > 13 ? 'bg-danger' : 'bg-ink'}
+                valueLabel={`${m.openPoints} pts`}
               />
             ))}
           </div>
+          {data.risks.length > 0 && (
+            <div className="mt-4 border-t border-line pt-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-mute">
+                Top Risks
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {data.risks.slice(0, 4).map((r) => (
+                  <div key={r.taskId} className="text-sm">
+                    <span className="font-medium">{r.title}</span>
+                    <span className="ml-2 text-xs text-mute">{r.reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </div>
+      {projects.length === 0 && null}
     </div>
   )
 }

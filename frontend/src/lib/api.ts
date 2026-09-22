@@ -260,6 +260,38 @@ export async function apiArchiveNotification(id: number): Promise<void> {
   await api.delete(`/notifications/${id}`)
 }
 
+// ---------- Analytics ----------
+
+export interface ApiAnalyticsOverview {
+  velocity: {
+    perSprint: {
+      sprintId: number
+      number: number
+      goal: string
+      committedPoints: number
+      donePoints: number
+    }[]
+  }
+  statusBreakdown: { status: string; count: number }[]
+  priorityBreakdown: { priority: string; count: number }[]
+  teamLoad: { userId: number; name: string; openTasks: number; openPoints: number }[]
+  risks: { taskId: number; title: string; reason: string; priority: string; status: string }[]
+  summary: {
+    totalTasks: number
+    doneTasks: number
+    completionRate: number
+    committedPointsActiveSprint: number
+    donePointsActiveSprint: number
+  }
+}
+
+export async function apiGetAnalyticsOverview(projectId?: number): Promise<ApiAnalyticsOverview> {
+  const { data } = await api.get<ApiAnalyticsOverview>('/analytics/overview', {
+    params: projectId != null ? { projectId } : undefined,
+  })
+  return data
+}
+
 /** Extract a human-readable message from an axios/network error. */
 export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {
