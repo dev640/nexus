@@ -78,22 +78,39 @@ The API is a long-running Spring Boot container — not a serverless function. T
 the WebSocket whiteboard work in production.
 
 1. Create a Railway project and add the **PostgreSQL** and **Redis** plugins.
-2. Add a service from this repository. Railway picks up [`railway.json`](railway.json), builds
-   `backend/Dockerfile` and health-checks `/api/health`.
-3. Set the environment variables (full list in [`.env.example`](.env.example)):
+2. Add a service from this repository, then set **Settings → Source → Root Directory** to
+   `backend`. This makes Railway build `backend/Dockerfile` with `backend/` as the build
+   context, which is what the Dockerfile's `COPY pom.xml .` expects.
+3. Set the environment variables (full list in [`.env.example`](.env.example)). Reference the
+   plugin variables so they stay in sync — Railway substitutes the private network address:
 
    | Variable | Notes |
    |----------|-------|
    | `NEXUS_JWT_SECRET` | **Required.** `openssl rand -hex 32` — HS256 needs ≥32 bytes |
    | `NEXUS_CORS_ALLOWED_ORIGINS` | The deployed Vercel origin, e.g. `https://nexus-2-0-omega.vercel.app` |
-   | `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | From the Postgres plugin |
-   | `SPRING_DATA_REDIS_HOST` / `_PORT` | From the Redis plugin |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — the app derives the JDBC URL from it |
+   | `REDIS_URL` | `${{Redis.REDIS_URL}}` — the app derives host/port/password from it |
    | `NEXUS_LLM_API_KEY` | Optional — leave empty for grounded (data-only) Copilot answers |
 
-   `PORT` is injected by the platform automatically.
+   `PORT` is injected by the platform automatically, and the app derives its datasource from
+   `DATABASE_URL` (or the discrete `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` form) and
+   its Redis client from `REDIS_URL` (or `REDISHOST`/`REDISPORT`/`REDISPASSWORD`). Set
+   `SPRING_DATASOURCE_URL` explicitly and it takes precedence.
 
-4. Any other Docker host works the same way: `docker build ./backend` and provide the same
-   environment variables.
+4. **Get the public URL:** service → **Settings → Networking → Public Networking → Generate
+   Domain**. You get `https://<service>-<environment>.up.railway.app`.
+5. Set the healthcheck path to `/api/health` (Settings → Deploy) so a broken boot is rolled
+   back. Flyway migrates the schema automatically on first boot.
+6. Point the frontend at it: set `VITE_API_URL` on Vercel to `<that URL>/api` and redeploy.
+
+Any other Docker host works the same way: `docker build ./backend` (with `backend/` as the
+context) and provide the same environment variables.
+
+> **Why there is no `railway.json`:** Railway deprecated Config as Code (`railway.json` /
+> `railway.toml`) — new services do not read it, and existing files stop working on
+> 2026-12-01 ([docs](https://docs.railway.com/reference/config-as-code)). Configuration now
+> lives in the dashboard as above. The Dockerfile is auto-detected because it sits at the root
+> of the service's source directory.
 
 ### Live URL
 
@@ -114,7 +131,7 @@ backend/             Spring Boot API
   src/main/resources/db/migration/           Flyway migrations V1–V7
   src/test/java/                             service unit tests
 docker-compose.yml   Postgres + Redis + backend
-railway.json         backend deployment descriptor
+(no Railway config file — see "Backend → Railway" below)
 vercel.json          frontend deployment descriptor
 PRD.md               product requirements and delivery history
 .env.example         every environment variable, documented

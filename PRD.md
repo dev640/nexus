@@ -150,9 +150,12 @@ frontend/   React 19 · TypeScript · Vite 8 · Tailwind 4 · React Router 7 · 
 backend/    Spring Boot 4.1 (Java 21) · Spring Security 7 · Spring Data JPA · Flyway ·
             PostgreSQL 16 · Redis 7 · WebSocket (JWT handshake)
 docker-compose.yml   postgres + redis + backend
-railway.json         backend deployment descriptor
 frontend/vercel.json frontend deployment descriptor (SPA rewrite)
 ```
+
+No Railway config file is committed: Config as Code (`railway.json`/`railway.toml`) is deprecated
+and unread for new Railway services, so the deployment is configured in the dashboard instead
+(Root Directory `backend`, plugin variables, healthcheck path).
 
 **Request flow:** React → axios client (JWT bearer injected from `localStorage`) → Spring Boot
 controllers → services → repositories → PostgreSQL. Flyway manages the schema and Hibernate
@@ -254,8 +257,13 @@ full list and generation hints.
 - Per-IP rate limiting on `/api/auth/**` with a bounded in-memory window (verified 429s).
 - Environment-provided JWT secret, CORS origins, DB/Redis URLs and platform `PORT`.
 - Actuator limited to `health,info`; all other routes authenticated.
-- Deployment descriptors: `railway.json` (backend image + health check) and
-  `frontend/vercel.json` (static build + SPA rewrite); `.env.example` documents every variable.
+- A pre-startup adapter (`PlatformEnvironment`) translates the platform's single connection
+  strings into Spring properties: `DATABASE_URL` → JDBC datasource (+username/password), or the
+  discrete `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` form; `REDIS_URL`/`REDIS_TLS_URL`
+  → Redis host/port/password/TLS, or `REDISHOST`/`REDISPORT`/`REDISPASSWORD`. Explicit Spring
+  configuration always wins, so local and docker-compose runs are unaffected.
+- Deployment descriptors: `frontend/vercel.json` (static build + SPA rewrite); `.env.example`
+  documents every variable.
 
 ---
 
@@ -263,12 +271,13 @@ full list and generation hints.
 
 ### Backend — Railway (or any Docker host)
 1. Create a project and add the **PostgreSQL** and **Redis** plugins.
-2. Add a service from this repository; Railway detects `railway.json` and builds
-   `backend/Dockerfile`.
+2. Add a service from this repository and set **Settings → Source → Root Directory** to
+   `backend`, so the build context matches what `backend/Dockerfile` copies.
 3. Set `NEXUS_JWT_SECRET` (`openssl rand -hex 32`), `NEXUS_CORS_ALLOWED_ORIGINS` (the Vercel
-   origin), and the database/Redis URLs provided by the plugins.
-   `PORT` is injected automatically.
+   origin), `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` and `REDIS_URL` = `${{Redis.REDIS_URL}}`.
+   `PORT` is injected automatically and the app derives its connections from those URLs.
 4. Health check: `/api/health`. Flyway migrates on boot.
+5. The backend's public URL is created at **Settings → Networking → Generate Domain**.
 
 ### Frontend — Vercel
 1. The Vercel project is connected to `dev640/nexus2.0` (`main`); root directory
