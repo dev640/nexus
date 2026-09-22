@@ -60,18 +60,21 @@ public class TaskService {
         return mapToResponse(savedTask);
     }
 
+    @Transactional(readOnly = true)
     public TaskResponse findById(Long id) {
         Task task = taskRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Task", "id", id));
         return mapToResponse(task);
     }
 
+    @Transactional(readOnly = true)
     public List<TaskResponse> findAll() {
         return taskRepository.findAll().stream()
             .map(this::mapToResponse)
             .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<TaskResponse> findByProjectId(Long projectId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
@@ -80,6 +83,7 @@ public class TaskService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<TaskResponse> findBySprintId(Long sprintId) {
         Sprint sprint = sprintRepository.findById(sprintId)
             .orElseThrow(() -> new ResourceNotFoundException("Sprint", "id", sprintId));
@@ -149,6 +153,12 @@ public class TaskService {
             );
         }
 
+        // Copy the persistent bag into a plain list so it is fully initialized
+        // inside the session and Jackson never sees a lazy proxy.
+        java.util.List<String> labels = task.getLabels() == null
+            ? java.util.List.of()
+            : new java.util.ArrayList<>(task.getLabels());
+
         return new TaskResponse(
             task.getId(),
             task.getTitle(),
@@ -160,7 +170,7 @@ public class TaskService {
             task.getPriority(),
             task.getStoryPoints(),
             assigneeResponse,
-            task.getLabels(),
+            labels,
             task.getCreatedAt(),
             task.getUpdatedAt()
         );

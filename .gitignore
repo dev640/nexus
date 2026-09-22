@@ -5,4 +5,11 @@
 node_modules/
 /package.json
 /package-lock.json
-/api/frontend/.vercel
+/api/
+frontend/.vercel
+.env
+.env.*
+!.env.example
+*.log
+.claude/
+

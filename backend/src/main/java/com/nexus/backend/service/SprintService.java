@@ -35,8 +35,8 @@ public class SprintService {
         sprint.setProject(project);
 
         // Calculate sprint number
-        int sprintCount = sprintRepository.countByProject(project);
-        sprint.setNumber(sprintCount + 1);
+        long sprintCount = sprintRepository.countByProject(project);
+        sprint.setNumber((int) sprintCount + 1);
 
         sprint.setGoal(request.goal());
         sprint.setStartDate(request.startDate());
@@ -53,12 +53,14 @@ public class SprintService {
         return mapToResponse(savedSprint);
     }
 
+    @Transactional(readOnly = true)
     public SprintResponse findById(Long id) {
         Sprint sprint = sprintRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Sprint", "id", id));
         return mapToResponse(sprint);
     }
 
+    @Transactional(readOnly = true)
     public List<SprintResponse> findByProjectId(Long projectId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));

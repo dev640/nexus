@@ -1,83 +1,94 @@
 package com.nexus.backend.domain.sprint;
 
-import com.nexus.backend.domain.BaseEntity;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import com.nexus.backend.domain.project.Project;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sprints")
-public class Sprint extends BaseEntity {
+public class Sprint {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
     @Column(nullable = false)
     private Integer number;
 
-    @Column(nullable = false)
+    @NotBlank(message = "Sprint goal is required")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String goal;
 
-    @Column(nullable = false)
+    @NotNull(message = "Start date is required")
+    @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(nullable = false)
+    @NotNull(message = "End date is required")
+    @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(nullable = false)
-    private Integer capacityPoints = 0;
+    @Column(name = "committed_points", nullable = false)
+    private Integer committedPoints = 0;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private SprintStatus status = SprintStatus.PLANNED;
 
-    public Integer getNumber() {
-        return number;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
-    public void setNumber(Integer number) {
+    // Constructors
+    public Sprint() {}
+
+    public Sprint(Project project, Integer number, String goal, LocalDate startDate, LocalDate endDate) {
+        this.project = project;
         this.number = number;
-    }
-
-    public String getGoal() {
-        return goal;
-    }
-
-    public void setGoal(String goal) {
         this.goal = goal;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
     }
 
-    public Integer getCapacityPoints() {
-        return capacityPoints;
-    }
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setCapacityPoints(Integer capacityPoints) {
-        this.capacityPoints = capacityPoints;
-    }
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
 
-    public Project getProject() {
-        return project;
-    }
+    public Integer getNumber() { return number; }
+    public void setNumber(Integer number) { this.number = number; }
 
-    public void setProject(Project project) {
-        this.project = project;
-    }
+    public String getGoal() { return goal; }
+    public void setGoal(String goal) { this.goal = goal; }
+
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public Integer getCommittedPoints() { return committedPoints; }
+    public void setCommittedPoints(Integer committedPoints) { this.committedPoints = committedPoints; }
+
+    public SprintStatus getStatus() { return status; }
+    public void setStatus(SprintStatus status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

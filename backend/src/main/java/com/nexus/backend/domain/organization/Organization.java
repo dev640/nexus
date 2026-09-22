@@ -1,44 +1,56 @@
 package com.nexus.backend.domain.organization;
 
-import com.nexus.backend.domain.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "organizations")
-public class Organization extends BaseEntity {
+public class Organization {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(nullable = false)
+    @NotBlank(message = "Organization name is required")
+    @Size(max = 200, message = "Organization name must not exceed 200 characters")
+    @Column(nullable = false, length = 200)
     private String name;
 
-    @Column
-    private String industry;
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
-    @Column
-    private Integer teamSize;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public String getName() {
-        return name;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
-    public void setName(String name) {
+    // Constructors
+    public Organization() {}
+
+    public Organization(String name, String description) {
         this.name = name;
+        this.description = description;
     }
 
-    public String getIndustry() {
-        return industry;
-    }
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setIndustry(String industry) {
-        this.industry = industry;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public Integer getTeamSize() {
-        return teamSize;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setTeamSize(Integer teamSize) {
-        this.teamSize = teamSize;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
