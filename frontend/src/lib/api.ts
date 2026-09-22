@@ -34,7 +34,7 @@ export type ApiTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 export type ApiSprintStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED'
 export type ApiProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED'
 export type ApiProjectHealth = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK'
-export type ApiUserRole = 'ADMIN' | 'MEMBER'
+export type ApiUserRole = 'ADMIN' | 'MEMBER' | 'VIEWER' | 'DEVELOPER'
 
 export interface ApiUser {
   id: number
@@ -108,6 +108,16 @@ export async function apiRegister(name: string, email: string, password: string)
 
 export async function apiListUsers(): Promise<ApiUser[]> {
   const { data } = await api.get<ApiUser[]>('/users')
+  return data
+}
+
+export async function apiUpdateMe(name: string): Promise<ApiUser> {
+  const { data } = await api.patch<ApiUser>('/users/me', { name })
+  return data
+}
+
+export async function apiUpdateUserRole(id: number, role: ApiUserRole): Promise<ApiUser> {
+  const { data } = await api.patch<ApiUser>(`/users/${id}/role`, { role })
   return data
 }
 

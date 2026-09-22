@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useAppStore, type NotificationCategory } from '../store/useAppStore'
+import type { ApiUserRole } from '../lib/api'
+
+const assignableRoles: ApiUserRole[] = ['ADMIN', 'MEMBER', 'DEVELOPER', 'VIEWER']
 
 const categories: { key: NotificationCategory; label: string }[] = [
   { key: 'MENTIONS', label: 'Mentions' },
@@ -15,18 +18,24 @@ export function Settings() {
   const updateSettings = useAppStore((s) => s.updateSettings)
   const toggleMutedCategory = useAppStore((s) => s.toggleMutedCategory)
   const resetWorkspace = useAppStore((s) => s.resetWorkspace)
-  const addMember = useAppStore((s) => s.addMember)
+  const saveProfile = useAppStore((s) => s.saveProfile)
+  const changeUserRole = useAppStore((s) => s.changeUserRole)
+  const userRole = useAppStore((s) => s.userRole)
+  const isAdmin = userRole === 'ADMIN'
 
   const [displayName, setDisplayName] = useState(settings.displayName)
-  const [role, setRole] = useState(settings.role)
   const [saved, setSaved] = useState(false)
+  const [profileError, setProfileError] = useState('')
   const [confirmingReset, setConfirmingReset] = useState(false)
-  const [newMemberName, setNewMemberName] = useState('')
-  const [newMemberRole, setNewMemberRole] = useState('')
 
-  function handleSaveProfile(e: React.FormEvent) {
+  async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
-    updateSettings({ displayName: displayName.trim() || settings.displayName, role: role.trim() || settings.role })
+    setProfileError('')
+    const result = await saveProfile(displayName.trim() || settings.displayName)
+    if (!result.ok) {
+      setProfileError(result.error ?? 'Failed to save')
+      return
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -34,14 +43,6 @@ export function Settings() {
   function handleReset() {
     resetWorkspace()
     setConfirmingReset(false)
-  }
-
-  function handleAddMember(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newMemberName.trim() || !newMemberRole.trim()) return
-    addMember({ name: newMemberName.trim(), role: newMemberRole.trim() })
-    setNewMemberName('')
-    setNewMemberRole('')
   }
 
   return (
@@ -74,11 +75,12 @@ export function Settings() {
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-mute">
                   Role
                 </label>
-                <input
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-ink"
-                />
+                <div className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-mute">
+                  {settings.role || userRole}
+                  <span className="ml-2 text-[10px] uppercase tracking-wide">
+                    (managed by admins)
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -89,6 +91,7 @@ export function Settings() {
                 Save Changes
               </button>
               {saved && <span className="text-xs font-medium text-success">Saved</span>}
+              {profileError && <span className="text-xs text-red-600">{profileError}</span>}
             </div>
           </form>
         </section>
@@ -99,41 +102,36 @@ export function Settings() {
           </h2>
           <p className="mb-4 text-sm text-mute">
             Everyone in the workspace roster, available as assignees and team members.
+            New people join by registering on the login page.
           </p>
           <div className="flex flex-col gap-2">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between text-sm">
+              <div key={m.id} className="flex items-center justify-between gap-3 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[9px] font-medium text-white">
                     {m.initials}
                   </div>
                   <span>{m.name}</span>
-                  <span className="text-xs text-mute">{m.role}</span>
                 </div>
-                <span className="text-xs text-mute">{m.utilization}% utilized</span>
+                {isAdmin ? (
+                  <select
+                    value={m.role}
+                    onChange={(e) => void changeUserRole(m.id, e.target.value as ApiUserRole)}
+                    className="rounded-md border border-line px-2 py-1 text-xs outline-none focus:border-ink"
+                    aria-label={`Role for ${m.name}`}
+                  >
+                    {assignableRoles.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-mute">{m.role}</span>
+                )}
               </div>
             ))}
           </div>
-          <form onSubmit={handleAddMember} className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row">
-            <input
-              value={newMemberName}
-              onChange={(e) => setNewMemberName(e.target.value)}
-              placeholder="Name"
-              className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-ink sm:flex-1"
-            />
-            <input
-              value={newMemberRole}
-              onChange={(e) => setNewMemberRole(e.target.value)}
-              placeholder="Role"
-              className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-ink sm:flex-1"
-            />
-            <button
-              type="submit"
-              className="shrink-0 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black"
-            >
-              + Add Member
-            </button>
-          </form>
         </section>
 
         <section className="border border-line bg-white p-6">
@@ -183,8 +181,8 @@ export function Settings() {
             Danger Zone
           </h2>
           <p className="mb-4 text-sm text-mute">
-            Wipes every project, task, sprint, team and notification in this browser and
-            restores the sample workspace. This cannot be undone.
+            Reloads every project, task, sprint and member from the server, discarding
+            local-only changes. Server data is never deleted.
           </p>
           {confirmingReset ? (
             <div className="flex flex-wrap items-center gap-3">

@@ -11,8 +11,10 @@ import {
   apiListUsers,
   apiLogin,
   apiRegister,
+  apiUpdateMe,
   apiUpdateSprintStatus,
   apiUpdateTaskStatus,
+  apiUpdateUserRole,
   getStoredToken,
   storeToken,
   type ApiUser,
@@ -158,7 +160,7 @@ export interface Settings {
 // Store
 // ---------------------------------------------------------------------------
 
-export type UserRole = 'ADMIN' | 'MEMBER'
+export type UserRole = ApiUser['role']
 
 interface NewProjectInput {
   name: string
@@ -186,6 +188,21 @@ interface NewSprintInput {
 interface NewMemberInput {
   name: string
   role: string
+}
+
+export interface AuthResult {
+  ok: boolean
+  error?: string
+}
+
+export interface ProfileResult {
+  ok: boolean
+  error?: string
+}
+
+export interface RoleChangeResult {
+  ok: boolean
+  error?: string
 }
 
 interface NewWikiPageInput {
@@ -264,8 +281,10 @@ interface AppState {
   markNotificationRead: (id: number) => void
   archiveNotification: (id: number) => void
 
-  // Settings (local until Phase 2)
+  // Settings (profile is API-backed; the rest is local until Phase 4)
   updateSettings: (input: Partial<Pick<Settings, 'displayName' | 'role' | 'defaultAssigneeId'>>) => void
+  saveProfile: (name: string) => Promise<ProfileResult>
+  changeUserRole: (memberId: string, role: ApiUser['role']) => Promise<RoleChangeResult>
   toggleMutedCategory: (category: NotificationCategory) => void
   resetWorkspace: () => void
 }
@@ -655,10 +674,40 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }))
   },
 
-  // ---------------- Settings (local until Phase 2) ----------------
+  // ---------------- Settings / profile ----------------
 
   updateSettings: (input) => {
     set((state) => ({ settings: { ...state.settings, ...input } }))
+  },
+
+  saveProfile: async (name) => {
+    try {
+      const updated = await apiUpdateMe(name)
+      set((state) => ({
+        currentUser: state.currentUser ? { ...state.currentUser, name: updated.name } : updated,
+        members: state.members.map((m) => (m.id === toUserId(updated.id) ? { ...m, name: updated.name, initials: initialsOf(updated.name) } : m)),
+        settings: { ...state.settings, displayName: updated.name },
+      }))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Failed to update profile') }
+    }
+  },
+
+  changeUserRole: async (memberId, role) => {
+    try {
+      const updated = await apiUpdateUserRole(parseId(memberId), role)
+      set((state) => ({
+        members: state.members.map((m) => (m.id === toUserId(updated.id) ? { ...m, role: updated.role } : m)),
+        currentUser: state.currentUser && state.currentUser.id === updated.id
+          ? { ...state.currentUser, role: updated.role }
+          : state.currentUser,
+        userRole: state.currentUser && state.currentUser.id === updated.id ? updated.role : state.userRole,
+      }))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Failed to change role') }
+    }
   },
 
   toggleMutedCategory: (category) => {
