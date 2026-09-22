@@ -1,16 +1,31 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore, noteColors, type NoteColor } from '../store/useAppStore'
 
 export function Whiteboard() {
   const stickyNotes = useAppStore((s) => s.stickyNotes)
   const addStickyNote = useAppStore((s) => s.addStickyNote)
   const updateStickyNoteText = useAppStore((s) => s.updateStickyNoteText)
+  const saveStickyNoteText = useAppStore((s) => s.saveStickyNoteText)
   const moveStickyNote = useAppStore((s) => s.moveStickyNote)
+  const saveStickyNotePosition = useAppStore((s) => s.saveStickyNotePosition)
   const deleteStickyNote = useAppStore((s) => s.deleteStickyNote)
+  const loadStickyNotes = useAppStore((s) => s.loadStickyNotes)
+  const connectWhiteboard = useAppStore((s) => s.connectWhiteboard)
+  const disconnectWhiteboard = useAppStore((s) => s.disconnectWhiteboard)
 
   const boardRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const live = useAppStore((s) => s.whiteboardConnected)
+
+  // Load notes and subscribe to live updates while the board is open.
+  useEffect(() => {
+    void loadStickyNotes()
+    connectWhiteboard()
+    return () => {
+      disconnectWhiteboard()
+    }
+  }, [loadStickyNotes, connectWhiteboard, disconnectWhiteboard])
 
   function handlePointerDown(e: React.PointerEvent, id: string, noteX: number, noteY: number) {
     const board = boardRef.current
@@ -36,19 +51,29 @@ export function Whiteboard() {
   }
 
   function handlePointerUp() {
+    const dragged = dragState.current
     dragState.current = null
     setDraggingId(null)
+    // Persist the final position once, not on every pointer move.
+    if (dragged) saveStickyNotePosition(dragged.id)
   }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <div className="text-xs font-medium uppercase tracking-widest text-mute">Collaboration</div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex items-center gap-1.5 text-xs ${live ? 'text-success' : 'text-mute'}`}
+            title={live ? 'Live — changes sync across sessions' : 'Connecting…'}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-success' : 'bg-mute'}`} />
+            {live ? 'Live' : 'Offline'}
+          </span>
           {noteColors.map((color) => (
             <button
               key={color}
-              onClick={() => addStickyNote(color)}
+              onClick={() => void addStickyNote(color)}
               className="h-7 w-7 rounded-full border border-line shadow-sm transition hover:scale-110"
               style={{ backgroundColor: color }}
               aria-label={`Add ${color} sticky note`}
@@ -88,7 +113,7 @@ export function Whiteboard() {
               <span className="h-1 w-1 rounded-full bg-black/25" />
             </div>
             <button
-              onClick={() => deleteStickyNote(note.id)}
+              onClick={() => void deleteStickyNote(note.id)}
               className="absolute right-1.5 top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-black/10 text-xs text-black/60 hover:bg-black/20 group-hover:flex"
               aria-label="Delete note"
             >
@@ -97,6 +122,7 @@ export function Whiteboard() {
             <textarea
               value={note.text}
               onChange={(e) => updateStickyNoteText(note.id, e.target.value)}
+              onBlur={() => saveStickyNoteText(note.id)}
               placeholder="Write something..."
               className="min-h-0 w-full flex-1 resize-none bg-transparent px-3 pb-1 text-sm leading-snug text-black/80 outline-none placeholder:text-black/40"
             />

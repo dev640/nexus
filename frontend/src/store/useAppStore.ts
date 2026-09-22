@@ -23,10 +23,15 @@ import {
   apiMarkNotificationRead,
   apiMarkAllNotificationsRead,
   apiArchiveNotification,
+  apiListWhiteboardNotes,
+  apiCreateWhiteboardNote,
+  apiUpdateWhiteboardNote,
+  apiDeleteWhiteboardNote,
   getStoredToken,
   storeToken,
   type ApiUser,
 } from '../lib/api'
+import { connectWhiteboardSocket, type WhiteboardEventPayload } from '../lib/whiteboardSocket'
 import type {
   Member,
   Project,
@@ -110,11 +115,23 @@ export interface StickyNote {
   author: string
 }
 
-const seedStickyNotes: StickyNote[] = [
-  { id: 'note-1', text: 'Retro: celebrate the auth flow ship 🎉', color: '#fff2a8', x: 40, y: 40, author: 'Devendra' },
-  { id: 'note-2', text: 'Payments API still blocked on vendor sandbox access', color: '#ffd6d6', x: 320, y: 100, author: 'Achal' },
-  { id: 'note-3', text: 'Sketch new dashboard layout before Sprint 9', color: '#d6e8ff', x: 90, y: 260, author: 'Vidhi' },
-]
+function mapNote(n: {
+  id: number
+  text: string
+  color: string
+  x: number
+  y: number
+  author: string | null
+}): StickyNote {
+  return {
+    id: `n-${n.id}`,
+    text: n.text ?? '',
+    color: n.color as NoteColor,
+    x: Math.round(n.x),
+    y: Math.round(n.y),
+    author: n.author ?? '',
+  }
+}
 
 export type NotificationCategory = 'MENTIONS' | 'TASKS' | 'PROJECTS' | 'AI' | 'SYSTEM'
 
@@ -149,6 +166,9 @@ export interface Settings {
 // ---------------------------------------------------------------------------
 
 export type UserRole = ApiUser['role']
+
+/** Live whiteboard socket handle (module-level: not part of rendered state). */
+let whiteboardDisconnect: (() => void) | null = null
 
 interface NewProjectInput {
   name: string
@@ -229,6 +249,7 @@ interface AppState {
   syncError: string | null
   currentUser: ApiUser | null
   userRole: UserRole
+  whiteboardConnected: boolean
 
   // Auth
   login: (email: string, password: string) => Promise<AuthResult>
@@ -250,11 +271,17 @@ interface AppState {
   addSprint: (input: NewSprintInput) => Promise<Sprint | null>
   setSprintStatus: (sprintId: string, status: SprintStatus) => void
 
-  // Sticky notes (local until Phase 6)
-  addStickyNote: (color: NoteColor) => StickyNote
+  // Whiteboard (API-backed + live socket since Phase 6)
+  loadStickyNotes: () => Promise<void>
+  connectWhiteboard: () => void
+  disconnectWhiteboard: () => void
+  addStickyNote: (color: NoteColor) => Promise<StickyNote | null>
   updateStickyNoteText: (id: string, text: string) => void
+  saveStickyNoteText: (id: string) => void
   moveStickyNote: (id: string, x: number, y: number) => void
-  deleteStickyNote: (id: string) => void
+  saveStickyNotePosition: (id: string) => void
+  deleteStickyNote: (id: string) => Promise<void>
+  applyWhiteboardEvent: (event: WhiteboardEventPayload) => void
 
   // Members / teams (local until Phase 2/6)
   addMember: (input: NewMemberInput) => Member
@@ -292,7 +319,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   members: [],
   teams: seedTeams,
   wikiPages: [],
-  stickyNotes: seedStickyNotes,
+  stickyNotes: [],
   notifications: [],
   settings: {
     displayName: '',
@@ -307,6 +334,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   syncError: null,
   currentUser: null,
   userRole: 'MEMBER',
+  whiteboardConnected: false,
 
   // ---------------- Auth ----------------
 
@@ -538,19 +566,64 @@ export const useAppStore = create<AppState>()((set, get) => ({
     })
   },
 
-  // ---------------- Sticky notes (local until Phase 6) ----------------
+  // ---------------- Whiteboard (API-backed + live socket) ----------------
 
-  addStickyNote: (color) => {
-    const newNote: StickyNote = {
-      id: `note-${Date.now()}`,
-      text: '',
-      color,
-      x: 40 + Math.round(Math.random() * 120),
-      y: 40 + Math.round(Math.random() * 80),
-      author: get().settings.displayName,
+  loadStickyNotes: async () => {
+    try {
+      const notes = await apiListWhiteboardNotes()
+      set({ stickyNotes: notes.map(mapNote) })
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to load whiteboard') })
     }
-    set((state) => ({ stickyNotes: [...state.stickyNotes, newNote] }))
-    return newNote
+  },
+
+  connectWhiteboard: () => {
+    if (whiteboardDisconnect) return
+    whiteboardDisconnect = connectWhiteboardSocket(
+      (event) => get().applyWhiteboardEvent(event),
+      (connected) => set({ whiteboardConnected: connected }),
+    )
+  },
+
+  disconnectWhiteboard: () => {
+    whiteboardDisconnect?.()
+    whiteboardDisconnect = null
+    set({ whiteboardConnected: false })
+  },
+
+  applyWhiteboardEvent: (event) => {
+    const note = mapNote(event.note)
+    set((state) => {
+      if (event.type === 'deleted') {
+        return { stickyNotes: state.stickyNotes.filter((n) => n.id !== note.id) }
+      }
+      const exists = state.stickyNotes.some((n) => n.id === note.id)
+      return {
+        stickyNotes: exists
+          ? state.stickyNotes.map((n) => (n.id === note.id ? { ...note, text: note.text || n.text } : n))
+          : [...state.stickyNotes, note],
+      }
+    })
+  },
+
+  addStickyNote: async (color) => {
+    try {
+      const created = await apiCreateWhiteboardNote(
+        color,
+        40 + Math.round(Math.random() * 120),
+        40 + Math.round(Math.random() * 80),
+      )
+      const note = mapNote(created)
+      set((state) =>
+        state.stickyNotes.some((n) => n.id === note.id)
+          ? state
+          : { stickyNotes: [...state.stickyNotes, note] },
+      )
+      return note
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to add note') })
+      return null
+    }
   },
 
   updateStickyNoteText: (id, text) => {
@@ -559,14 +632,36 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }))
   },
 
+  saveStickyNoteText: (id) => {
+    const note = get().stickyNotes.find((n) => n.id === id)
+    if (!note) return
+    apiUpdateWhiteboardNote(parseId(id), { text: note.text }).catch((err) => {
+      set({ syncError: apiErrorMessage(err, 'Failed to save note') })
+    })
+  },
+
   moveStickyNote: (id, x, y) => {
     set((state) => ({
       stickyNotes: state.stickyNotes.map((n) => (n.id === id ? { ...n, x, y } : n)),
     }))
   },
 
-  deleteStickyNote: (id) => {
-    set((state) => ({ stickyNotes: state.stickyNotes.filter((n) => n.id !== id) }))
+  saveStickyNotePosition: (id) => {
+    const note = get().stickyNotes.find((n) => n.id === id)
+    if (!note) return
+    apiUpdateWhiteboardNote(parseId(id), { x: note.x, y: note.y }).catch((err) => {
+      set({ syncError: apiErrorMessage(err, 'Failed to save note position') })
+    })
+  },
+
+  deleteStickyNote: async (id) => {
+    const previous = get().stickyNotes
+    set({ stickyNotes: previous.filter((n) => n.id !== id) })
+    try {
+      await apiDeleteWhiteboardNote(parseId(id))
+    } catch (err) {
+      set({ stickyNotes: previous, syncError: apiErrorMessage(err, 'Failed to delete note') })
+    }
   },
 
   // ---------------- Members / teams (local) ----------------

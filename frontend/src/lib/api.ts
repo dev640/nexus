@@ -292,6 +292,49 @@ export async function apiGetAnalyticsOverview(projectId?: number): Promise<ApiAn
   return data
 }
 
+// ---------- Whiteboard ----------
+
+export interface ApiWhiteboardNote {
+  id: number
+  board: string
+  text: string
+  color: string
+  x: number
+  y: number
+  author: string | null
+}
+
+export async function apiListWhiteboardNotes(): Promise<ApiWhiteboardNote[]> {
+  const { data } = await api.get<ApiWhiteboardNote[]>('/whiteboard/notes')
+  return data
+}
+
+export async function apiCreateWhiteboardNote(color: string, x: number, y: number): Promise<ApiWhiteboardNote> {
+  const { data } = await api.post<ApiWhiteboardNote>('/whiteboard/notes', { color, x, y })
+  return data
+}
+
+export async function apiUpdateWhiteboardNote(
+  id: number,
+  patch: { text?: string; color?: string; x?: number; y?: number },
+): Promise<ApiWhiteboardNote> {
+  const { data } = await api.patch<ApiWhiteboardNote>(`/whiteboard/notes/${id}`, patch)
+  return data
+}
+
+export async function apiDeleteWhiteboardNote(id: number): Promise<void> {
+  await api.delete(`/whiteboard/notes/${id}`)
+}
+
+/** WebSocket endpoint for live whiteboard events, authenticated with the session token. */
+export function whiteboardSocketUrl(): string {
+  const explicit = import.meta.env.VITE_WS_URL as string | undefined
+  if (explicit) return explicit
+  const base = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:8080'
+  const wsBase = base.replace(/^http/, 'ws').replace(/\/api\/?$/, '')
+  return `${wsBase}/ws/whiteboard`
+}
+
 /** Extract a human-readable message from an axios/network error. */
 export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {
