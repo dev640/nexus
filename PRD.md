@@ -230,8 +230,8 @@ full list and generation hints.
 | `NEXUS_CORS_ALLOWED_ORIGINS` | Comma-separated allowed browser origins | `localhost:5173,localhost:3000` |
 | `NEXUS_AUTH_RATE_LIMIT` | Max auth requests per IP per 60 s window | `20` |
 | `NEXUS_LLM_API_KEY` / `_BASE_URL` / `_MODEL` | Optional Copilot LLM | empty → grounded mode |
-| `VITE_API_URL` (frontend) | Backend base URL baked into the build | `/api` via dev proxy |
-| `VITE_WS_URL` (frontend) | Explicit whiteboard socket URL | derived from `VITE_API_URL` |
+| `VITE_API_URL` (frontend) | Backend API base **including `/api`**, baked into the build at build time | `/api` via dev proxy |
+| `VITE_WS_URL` (frontend) | Explicit whiteboard socket URL | derived from `VITE_API_URL` (http→ws, trailing `/api` stripped) |
 
 ---
 
@@ -273,7 +273,9 @@ full list and generation hints.
 ### Frontend — Vercel
 1. The Vercel project is connected to `dev640/nexus2.0` (`main`); root directory
    `frontend/`, framework Vite, output `dist`.
-2. Set `VITE_API_URL` to the backend's public URL.
+2. Set `VITE_API_URL` to the backend's public URL **plus `/api`** (e.g.
+   `https://your-backend.up.railway.app/api`), then redeploy — Vite inlines `VITE_*`
+   variables at build time, so adding the variable alone changes nothing.
 3. Every push to `main` deploys automatically; the SPA rewrite keeps client routes working.
 
 > The backend is **not** a serverless function — it is a long-running Spring Boot container,

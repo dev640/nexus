@@ -68,7 +68,7 @@ Set this environment variable in the Vercel project (Settings → Environment Va
 
 | Variable | Value |
 |----------|-------|
-| `VITE_API_URL` | Public URL of the deployed backend, e.g. `https://nexus-api.up.railway.app` |
+| `VITE_API_URL` | Backend API base URL, **including the `/api` suffix**, e.g. `https://nexus-api.up.railway.app/api`. The client appends route paths to this value verbatim, so a bare host would resolve to `https://host/auth/login` and 404. |
 
 Without it the bundle falls back to `/api`, which only works behind the local dev proxy.
 
