@@ -9,6 +9,7 @@ import com.nexus.backend.dto.AuthResponse;
 import com.nexus.backend.exception.ResourceNotFoundException;
 import com.nexus.backend.exception.ValidationException;
 import com.nexus.backend.repository.UserRepository;
+import com.nexus.backend.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -35,10 +37,12 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
-        // TODO: Generate JWT tokens in Phase 2
+        String token = jwtUtil.generateToken(savedUser.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(savedUser.getEmail());
+
         return new AuthResponse(
-            "temp-token",
-            "temp-refresh-token",
+            token,
+            refreshToken,
             mapToResponse(savedUser)
         );
     }
@@ -51,10 +55,12 @@ public class UserService {
             throw new ValidationException("Invalid email or password");
         }
 
-        // TODO: Generate JWT tokens in Phase 2
+        String token = jwtUtil.generateToken(user.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+
         return new AuthResponse(
-            "temp-token",
-            "temp-refresh-token",
+            token,
+            refreshToken,
             mapToResponse(user)
         );
     }
