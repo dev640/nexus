@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
+import { supabaseEnabled, supabaseRequestPasswordReset } from '../lib/supabase'
 import { MarqueeBand } from '../components/ui/MarqueeBand'
 import { MagneticButton } from '../components/ui/MagneticButton'
 
@@ -13,6 +14,7 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -26,6 +28,7 @@ export function Login() {
       return
     }
     setError('')
+    setNotice('')
     setBusy(true)
     const result =
       mode === 'login'
@@ -36,7 +39,32 @@ export function Login() {
       setError(result.error ?? 'Something went wrong')
       return
     }
+    // Supabase with "Confirm email" enabled: registration succeeded but there
+    // is no session yet — stay on the page and tell the user what to do.
+    if (mode === 'register' && !useAppStore.getState().isAuthenticated) {
+      setNotice('Account created. Check your inbox to confirm your email, then sign in.')
+      setMode('login')
+      return
+    }
     navigate('/')
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError('Enter your email above first, then click forgot password.')
+      return
+    }
+    if (!supabaseEnabled) {
+      setError('Password reset requires Supabase authentication to be configured.')
+      return
+    }
+    setError('')
+    const result = await supabaseRequestPasswordReset(email)
+    if (!result.ok) {
+      setError(result.error ?? 'Could not send the reset email')
+      return
+    }
+    setNotice(`Reset link sent to ${email}.`)
   }
 
   return (
@@ -104,6 +132,7 @@ export function Login() {
             />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
+          {notice && <p className="text-xs text-emerald-600">{notice}</p>}
           <MagneticButton
             type="submit"
             disabled={busy}
@@ -111,7 +140,7 @@ export function Login() {
           >
             {busy ? 'Please wait…' : mode === 'login' ? 'Continue' : 'Create account'}
           </MagneticButton>
-          {mode === 'login' && (
+          {mode === 'login' && !supabaseEnabled && (
             <p className="text-center text-xs text-mute">
               Dev seed logins: devendra@nexus.com · achal@nexus.com · vidhi@nexus.com ·
               palak@nexus.com — password <span className="font-mono">password123</span>
@@ -124,6 +153,7 @@ export function Login() {
                 onClick={() => {
                   setMode('register')
                   setError('')
+                  setNotice('')
                 }}
                 className="hover:text-ink"
               >
@@ -135,15 +165,20 @@ export function Login() {
                 onClick={() => {
                   setMode('login')
                   setError('')
+                  setNotice('')
                 }}
                 className="hover:text-ink"
               >
                 Back to sign in
               </button>
             )}
-            <a href="#" className="hover:text-ink">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="hover:text-ink"
+            >
               Forgot password
-            </a>
+            </button>
           </div>
         </form>
       </div>

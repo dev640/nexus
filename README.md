@@ -15,6 +15,7 @@ AI copilot — all on one data model.
 |-------|------------|
 | Frontend | React 19 · TypeScript · Vite 8 · Tailwind 4 · React Router 7 · Zustand · axios |
 | Backend | Spring Boot 4.1 (Java 21) · Spring Security 7 · Spring Data JPA · Flyway · WebSocket |
+| Auth | Built-in email/password JWTs, plus **optional Supabase Auth** (see [Authentication](#authentication)) |
 | Data | PostgreSQL 16 · Redis 7 (whiteboard pub/sub) |
 | Local infra | Docker Compose (Postgres + Redis + API) |
 
@@ -44,7 +45,8 @@ Password for all seed accounts: **`password123`**
 | `vidhi@nexus.com` | MEMBER |
 | `palak@nexus.com` | MEMBER |
 
-Flyway applies `V1 → V7` on first boot, including the seed data above.
+Flyway applies `V1 → V8` on first boot, including the seed data above. These seed logins keep
+working until you configure Supabase; see [Authentication](#authentication).
 
 ---
 
@@ -69,8 +71,12 @@ Set this environment variable in the Vercel project (Settings → Environment Va
 | Variable | Value |
 |----------|-------|
 | `VITE_API_URL` | Backend API base URL, **including the `/api` suffix**, e.g. `https://nexus-api.up.railway.app/api`. The client appends route paths to this value verbatim, so a bare host would resolve to `https://host/auth/login` and 404. |
+| `VITE_SUPABASE_URL` | Optional. Enables Supabase Auth on the login screen. |
+| `VITE_SUPABASE_ANON_KEY` | Optional. The project's anon public key (safe to expose). |
 
-Without it the bundle falls back to `/api`, which only works behind the local dev proxy.
+Without `VITE_API_URL` the bundle falls back to `/api`, which only works behind the local dev
+proxy. Both Supabase variables must be set (and the site redeployed — Vite inlines them at build
+time) or neither is used.
 
 ### Backend → Railway (or any Docker host)
 
@@ -90,6 +96,7 @@ the WebSocket whiteboard work in production.
    | `NEXUS_CORS_ALLOWED_ORIGINS` | The deployed Vercel origin, e.g. `https://nexus-2-0-omega.vercel.app` |
    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — the app derives the JDBC URL from it |
    | `REDIS_URL` | `${{Redis.REDIS_URL}}` — the app derives host/port/password from it |
+   | `NEXUS_SUPABASE_URL` | Optional — enables Supabase Auth (see below) |
    | `NEXUS_LLM_API_KEY` | Optional — leave empty for grounded (data-only) Copilot answers |
 
    `PORT` is injected by the platform automatically, and the app derives its datasource from
@@ -118,6 +125,44 @@ context) and provide the same environment variables.
 
 ---
 
+## Authentication
+
+Nexus issues its own HS256 JWTs. `POST /api/auth/login` and `/register` return an access token
+plus a refresh token; `JwtAuthenticationFilter` validates them on every request and
+`GET /api/users/me` returns the caller. Nothing else is required to run or deploy the app.
+
+### Supabase (optional)
+
+Adding Supabase Auth lets users sign in with Supabase identities while keeping the same Nexus
+permissions. It is off until the variables below are present — with them unset, behaviour is
+identical to the built-in flow.
+
+Set on the **backend**:
+
+| Variable | Notes |
+|----------|-------|
+| `NEXUS_SUPABASE_URL` | Project URL, e.g. `https://abcdefgh.supabase.co`. Required to enable the integration. |
+| `NEXUS_SUPABASE_JWT_SECRET` | JWT secret, for projects that sign tokens with HS256. |
+| `NEXUS_SUPABASE_USE_JWKS` | `true` for projects that sign asymmetrically — tokens are then verified against `<url>/auth/v1/.well-known/jwks.json` (cached for an hour, refetched on rotation). |
+| `NEXUS_SUPABASE_AUDIENCE` | Defaults to `authenticated`. |
+| `NEXUS_SUPABASE_ISSUER` | Optional; derived as `<url>/auth/v1`. |
+
+Set on the **frontend** (Vercel): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Find all of
+these in the Supabase dashboard under **Project Settings → API**. A credential of some kind is
+required, so a half-configured project simply leaves the integration off.
+
+How identities map to accounts (`SupabaseUserService`):
+
+1. a known `users.supabase_id` — the normal repeat-login path;
+2. otherwise an existing account with the same email is **linked** rather than duplicated, and
+   its local password is cleared so the account is Supabase-only from then on;
+3. otherwise a new account is provisioned with the `MEMBER` role and no local password.
+
+The whiteboard WebSocket handshake accepts Supabase tokens too, so the live board works
+regardless of which provider signed the user in.
+
+---
+
 ## Project structure
 
 ```
@@ -128,7 +173,8 @@ backend/             Spring Boot API
   src/main/java/com/nexus/backend/web/       REST controllers
   src/main/java/com/nexus/backend/service/   business logic
   src/main/java/com/nexus/backend/whiteboard/ WebSocket + Redis fan-out
-  src/main/resources/db/migration/           Flyway migrations V1–V7
+  src/main/java/com/nexus/backend/security/   JWT filter + optional Supabase token verifier
+  src/main/resources/db/migration/           Flyway migrations V1–V8
   src/test/java/                             service unit tests
 docker-compose.yml   Postgres + Redis + backend
 (no Railway config file — see "Backend → Railway" below)

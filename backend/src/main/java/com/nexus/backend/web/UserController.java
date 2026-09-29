@@ -42,6 +42,12 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    /** The authenticated user's own profile — used to bootstrap a session. */
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> me() {
+        return ResponseEntity.ok(toResponse(currentUser()));
+    }
+
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateMe(@Valid @RequestBody UpdateMeRequest payload) {
         User current = currentUser();
@@ -73,7 +79,13 @@ public class UserController {
     }
 
     private static UserResponse toResponse(User u) {
-        return new UserResponse(u.getId(), u.getName(), u.getEmail(), u.getRole());
+        return new UserResponse(
+            u.getId(),
+            u.getName(),
+            u.getEmail(),
+            u.getRole(),
+            u.getSupabaseId() != null ? u.getSupabaseId().toString() : null
+        );
     }
 
     public record UpdateMeRequest(

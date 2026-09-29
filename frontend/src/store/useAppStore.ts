@@ -31,6 +31,7 @@ import {
   storeToken,
   type ApiUser,
 } from '../lib/api'
+import { supabase, supabaseEnabled, supabaseSignIn, supabaseSignOut, supabaseSignUp } from '../lib/supabase'
 import { connectWhiteboardSocket, type WhiteboardEventPayload } from '../lib/whiteboardSocket'
 import type {
   Member,
@@ -256,6 +257,7 @@ interface AppState {
   register: (name: string, email: string, password: string) => Promise<AuthResult>
   logout: () => void
   bootstrapFromStoredToken: () => Promise<void>
+  applyCurrentUser: (user: ApiUser) => void
 
   // Sync
   loadWorkspace: () => Promise<void>
@@ -338,16 +340,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   // ---------------- Auth ----------------
 
+  /** Applies a freshly fetched profile to the session state. */
+  applyCurrentUser: (user: ApiUser) => {
+    set({
+      isAuthenticated: true,
+      currentUser: user,
+      userRole: user.role,
+      settings: { ...get().settings, displayName: user.name, role: user.role },
+    })
+  },
+
   login: async (email, password) => {
     try {
+      if (supabaseEnabled && supabase) {
+        const result = await supabaseSignIn(email, password)
+        if (!result.ok) return { ok: false, error: result.error }
+        // The Supabase JWT is accepted by the backend's auth filter, which
+        // resolves (or auto-provisions) the matching local account.
+        const { data } = await api.get<ApiUser>('/users/me')
+        get().applyCurrentUser(data)
+        await get().loadWorkspace()
+        return { ok: true }
+      }
       const auth = await apiLogin(email, password)
       storeToken(auth.token)
-      set({
-        isAuthenticated: true,
-        currentUser: auth.user,
-        userRole: auth.user.role,
-        settings: { ...get().settings, displayName: auth.user.name, role: auth.user.role },
-      })
+      get().applyCurrentUser(auth.user)
       await get().loadWorkspace()
       return { ok: true }
     } catch (err) {
@@ -357,14 +374,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   register: async (name, email, password) => {
     try {
+      if (supabaseEnabled && supabase) {
+        const result = await supabaseSignUp(name, email, password)
+        if (!result.ok) return { ok: false, error: result.error }
+        // When email confirmation is on there is no session yet — the user
+        // must verify before signing in. Report that as success-with-note.
+        const { data } = await supabase.auth.getSession()
+        if (!data.session) {
+          return { ok: true }
+        }
+        const me = await api.get<ApiUser>('/users/me')
+        get().applyCurrentUser(me.data)
+        await get().loadWorkspace()
+        return { ok: true }
+      }
       const auth = await apiRegister(name, email, password)
       storeToken(auth.token)
-      set({
-        isAuthenticated: true,
-        currentUser: auth.user,
-        userRole: auth.user.role,
-        settings: { ...get().settings, displayName: auth.user.name, role: auth.user.role },
-      })
+      get().applyCurrentUser(auth.user)
       await get().loadWorkspace()
       return { ok: true }
     } catch (err) {
@@ -373,6 +399,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   logout: () => {
+    void supabaseSignOut()
     storeToken(null)
     api.defaults.headers.common['Authorization'] = undefined
     set({
@@ -389,7 +416,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   bootstrapFromStoredToken: async () => {
-    if (!getStoredToken() || get().isBootstrapped) return
+    if (get().isBootstrapped) return
+    if (supabaseEnabled && supabase) {
+      const { data } = await supabase.auth.getSession()
+      if (!data.session) {
+        set({ isAuthenticated: false })
+        return
+      }
+      try {
+        const me = await api.get<ApiUser>('/users/me')
+        get().applyCurrentUser(me.data)
+        await get().loadWorkspace()
+      } catch {
+        // Token not accepted (backend Supabase not configured, user deleted…):
+        // sign out so the login screen shows.
+        await supabaseSignOut()
+        set({ isAuthenticated: false })
+      }
+      return
+    }
+    if (!getStoredToken()) return
     await get().loadWorkspace()
   },
 

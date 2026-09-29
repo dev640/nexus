@@ -50,6 +50,12 @@ Legend — **✅ Built** (implemented + verified against the running stack) · *
 - **FR-A5** Every `/api/*` route except auth, health and the WebSocket handshake requires a token.
 - **FR-A6** Log out clears the token and the in-memory workspace.
 - **FR-A7** Repeated authentication attempts from one IP are rate limited (HTTP 429).
+- **FR-A8** `GET /api/users/me` returns the authenticated caller's own account.
+- **FR-A9** Optional Supabase Auth: a verified Supabase access token is accepted alongside a
+  Nexus token. The identity is matched to `users.supabase_id`, else linked to the local account
+  with the same email (clearing its local password), else provisioned with the `MEMBER` role.
+  Unset configuration leaves the built-in flow untouched.
+- **FR-A10** The whiteboard WebSocket handshake accepts either token type.
 
 ### 3.2 Projects — ✅ Built
 - **FR-P1** List projects with status, health, progress, current sprint number and member count.
@@ -179,6 +185,7 @@ are mapped to the string IDs the UI already used (`p-1`, `t-5`).
 | POST | `/api/auth/refresh` | Exchange a refresh token for a new token pair |
 | GET | `/api/health` | Liveness (public) |
 | GET | `/api/users` | List workspace users |
+| GET | `/api/users/me` | Return the authenticated caller's account |
 | PATCH | `/api/users/me` | Update own display name |
 | PATCH | `/api/users/{id}/role` | Change a user's role (**ADMIN**) |
 | GET · POST | `/api/projects` | List · create projects |
@@ -218,6 +225,7 @@ are mapped to the string IDs the UI already used (`p-1`, `t-5`).
 | `V5` | `wiki_pages` |
 | `V6` | `notifications` (+ a seed wiki page) |
 | `V7` | `whiteboard_notes` |
+| `V8` | `users.supabase_id` (+ partial unique index) and a nullable `users.password` for Supabase-managed accounts |
 
 ### 5.3 Configuration
 
@@ -233,6 +241,8 @@ full list and generation hints.
 | `NEXUS_CORS_ALLOWED_ORIGINS` | Comma-separated allowed browser origins | `localhost:5173,localhost:3000` |
 | `NEXUS_AUTH_RATE_LIMIT` | Max auth requests per IP per 60 s window | `20` |
 | `NEXUS_LLM_API_KEY` / `_BASE_URL` / `_MODEL` | Optional Copilot LLM | empty → grounded mode |
+| `NEXUS_SUPABASE_URL` / `_JWT_SECRET` / `_USE_JWKS` / `_AUDIENCE` / `_ISSUER` | Optional Supabase Auth for the API (URL plus a secret **or** JWKS) | empty → disabled |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (frontend) | Supabase Auth on the login screen | empty → built-in email/password login |
 | `VITE_API_URL` (frontend) | Backend API base **including `/api`**, baked into the build at build time | `/api` via dev proxy |
 | `VITE_WS_URL` (frontend) | Explicit whiteboard socket URL | derived from `VITE_API_URL` (http→ws, trailing `/api` stripped) |
 
@@ -310,13 +320,17 @@ cd frontend && npx tsc -b && npm run lint && npm run build
 ```
 
 ### Verified end to end
-- Clean database volume → Flyway applies `V1 → V7` with seed data.
+- Clean database volume → Flyway applies `V1 → V8` with seed data.
 - Login, refresh-token exchange, and rejection of an access token used as a refresh token.
 - Anonymous `/api/*` → **403**; authenticated access to all eight domains → **200**.
 - Task creation, board status change and whiteboard note create/delete persist to Postgres.
 - Live whiteboard events reach an open session without a reload, from a separate client.
 - Rate limiter returns **429** once an IP exceeds its window.
 - CORS preflight from the frontend origin returns **200**.
+- Supabase identity path, against the real API with a locally minted HS256 token: a new subject
+  provisions a `MEMBER` account, a repeat login returns the same row, an existing email account
+  is linked (role preserved, password cleared) rather than duplicated, and forged signatures,
+  a foreign issuer and a malformed token are all refused.
 
 ---
 
@@ -332,7 +346,10 @@ cd frontend && npx tsc -b && npm run lint && npm run build
    `NEXUS_JWT_SECRET`; a startup check that refuses the default profile is a worthwhile hardening.
 5. **Rate limiting is per instance.** A shared Redis counter is needed for multi-instance
    deployments.
-6. **No end-to-end (browser) test suite in CI.** Coverage today is backend unit tests plus
+6. **The Supabase JWKS path is not yet exercised against a real project.** HS256 verification is
+   covered by unit tests and the end-to-end smoke; the `NEXUS_SUPABASE_USE_JWKS=true` branch
+   (RS256/ES256, JWKS caching and rotation refetch) is implemented but only unit-tested.
+7. **No end-to-end (browser) test suite in CI.** Coverage today is backend unit tests plus
    frontend lint/build; a Playwright smoke path would guard the wiring regressions found during
    Phase 1.
 

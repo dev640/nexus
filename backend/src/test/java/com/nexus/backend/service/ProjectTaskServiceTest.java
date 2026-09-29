@@ -175,7 +175,7 @@ class ProjectTaskServiceTest {
 
         var response = taskService.findById(6L);
 
-        assertThat(response.assignee()).isEqualTo(new UserResponse(3L, "Vidhi", "vidhi@nexus.com", UserRole.MEMBER));
+        assertThat(response.assignee()).isEqualTo(new UserResponse(3L, "Vidhi", "vidhi@nexus.com", UserRole.MEMBER, null));
     }
 
     @Test

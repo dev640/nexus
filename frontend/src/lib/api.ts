@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { supabase, supabaseEnabled } from './supabase'
 
 const TOKEN_KEY = 'nexus-auth-token'
 
@@ -19,7 +20,17 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  // When Supabase auth is enabled it is the source of truth: its session
+  // manager refreshes tokens before they expire, so always send the live one.
+  if (supabaseEnabled && supabase) {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+      return config
+    }
+  }
   const token = getStoredToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -339,6 +350,15 @@ export async function apiAskCopilot(question: string, projectId?: number): Promi
     { params: projectId != null ? { projectId } : undefined },
   )
   return data
+}
+
+/** The most current auth token: the live Supabase session when enabled, else the stored Nexus JWT. */
+export async function getCurrentToken(): Promise<string | null> {
+  if (supabaseEnabled && supabase) {
+    const { data } = await supabase.auth.getSession()
+    if (data.session?.access_token) return data.session.access_token
+  }
+  return getStoredToken()
 }
 
 /** WebSocket endpoint for live whiteboard events, authenticated with the session token. */
