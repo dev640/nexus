@@ -55,7 +55,31 @@ Legend — **✅ Built** (implemented + verified against the running stack) · *
   Nexus token. The identity is matched to `users.supabase_id`, else linked to the local account
   with the same email (clearing its local password), else provisioned with the `MEMBER` role.
   Unset configuration leaves the built-in flow untouched.
-- **FR-A10** The whiteboard WebSocket handshake accepts either token type.
+- **FR-A10** The whiteboard WebSocket handshake accepts either token type; the chat socket at
+  `/ws/chat` uses the same handshake.
+
+### 3.12 Chat (Slack) — ✅ Built
+- **FR-C1** Public and private channels; anyone can create, browse and join public ones; only
+  members can read or post in private channels.
+- **FR-C2** Direct messages between any two teammates, created on demand and reused (never
+  duplicated) for the same pair.
+- **FR-C3** Message history is paged newest-first backwards from any point and returned
+  oldest-first; messages are limited to 4000 characters.
+- **FR-C4** Emoji reactions on any message, one reaction per user per emoji, idempotent.
+- **FR-C5** Unread counts per conversation plus a workspace total; opening a conversation marks
+  it read; authors count their own messages as read.
+- **FR-C6** `@username` mentions notify the mentioned teammate in the Inbox (MENTIONS category).
+- **FR-C7** Authors can edit their own messages (marked as edited); authors or channel admins
+  can delete.
+- **FR-C8** Full-text message search across every conversation the caller belongs to.
+- **FR-C9** Default channels #general/#random/#dev exist from first use and every user is
+  auto-joined; the first user to open chat admins them.
+- **FR-C10** Delivery is live: messages, edits, deletions and reactions arrive over the
+  `/ws/chat` WebSocket scoped to channel membership; typing indicators and online presence are
+  relayed between members.
+- **FR-C11** Only channel admins can change a channel topic; DMs cannot be left.
+- **FR-C12** The chat socket handshake requires the same JWT as the REST API (Nexus or
+  Supabase).
 
 ### 3.2 Projects — ✅ Built
 - **FR-P1** List projects with status, health, progress, current sprint number and member count.
@@ -188,6 +212,18 @@ are mapped to the string IDs the UI already used (`p-1`, `t-5`).
 | GET | `/api/users/me` | Return the authenticated caller's account |
 | PATCH | `/api/users/me` | Update own display name |
 | PATCH | `/api/users/{id}/role` | Change a user's role (**ADMIN**) |
+| GET · POST | `/api/chat/channels` | My conversations · create a channel |
+| GET | `/api/chat/channels/discover` | Public channels not yet joined |
+| POST | `/api/chat/channels/dm/{userId}` | Open (or reuse) a DM with a teammate |
+| POST | `/api/chat/channels/{id}/join` · `/leave` | Join a public channel · leave one |
+| PATCH | `/api/chat/channels/{id}/topic` | Set the topic (**channel admin**) |
+| GET · POST | `/api/chat/channels/{id}/messages` | History (paged) · post |
+| PATCH · DELETE | `/api/chat/messages/{id}` | Edit own · delete (author or channel admin) |
+| POST | `/api/chat/messages/{id}/reactions` | Toggle an emoji reaction |
+| POST | `/api/chat/channels/{id}/read` | Mark the conversation read |
+| GET | `/api/chat/unread` | Per-channel unread counts + total (mentions included) |
+| GET | `/api/chat/search?q=` | Search messages across my conversations |
+| GET | `/api/chat/presence` | Currently online user ids |
 | GET · POST | `/api/projects` | List · create projects |
 | GET · PUT · DELETE | `/api/projects/{id}` | Read · update · delete |
 | GET · POST | `/api/sprints` | List (`?projectId`) · create |
@@ -226,6 +262,7 @@ are mapped to the string IDs the UI already used (`p-1`, `t-5`).
 | `V6` | `notifications` (+ a seed wiki page) |
 | `V7` | `whiteboard_notes` |
 | `V8` | `users.supabase_id` (+ partial unique index) and a nullable `users.password` for Supabase-managed accounts |
+| `V9` | `chat_channels`, `chat_channel_members` (with read position) and `chat_messages` (inline reactions) |
 
 ### 5.3 Configuration
 
@@ -331,6 +368,12 @@ cd frontend && npx tsc -b && npm run lint && npm run build
   provisions a `MEMBER` account, a repeat login returns the same row, an existing email account
   is linked (role preserved, password cleared) rather than duplicated, and forged signatures,
   a foreign issuer and a malformed token are all refused.
+- Chat, two live users on one stack: posting to #general delivers `message.created` over
+  `/ws/chat` to both members, typing indicators relay, presence frames arrive, unread counts
+  rise for the reader and fall after `/read`, reactions toggle idempotently, DMs are reused
+  not duplicated, `@achal` mentions create a MENTIONS notification, private channels 404 for
+  non-members, and edit/delete permissions hold (author yes, other member no, channel admin
+  delete yes).
 
 ---
 

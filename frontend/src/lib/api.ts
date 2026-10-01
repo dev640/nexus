@@ -337,6 +337,106 @@ export async function apiDeleteWhiteboardNote(id: number): Promise<void> {
   await api.delete(`/whiteboard/notes/${id}`)
 }
 
+// ---------- Chat (Slack) ----------
+
+export type ApiChatChannelType = 'PUBLIC' | 'PRIVATE' | 'DM'
+
+export interface ApiChatChannel {
+  id: number
+  name: string | null
+  type: ApiChatChannelType
+  topic: string | null
+  member: boolean
+  partnerId: number | null
+  partnerName: string | null
+  createdAt: string
+}
+
+export interface ApiChatMessage {
+  id: number
+  channelId: number | null
+  authorId: number | null
+  authorName: string | null
+  body: string
+  edited: boolean
+  reactions: Record<string, number[]>
+  createdAt: string
+}
+
+export interface ApiChatUnread {
+  total: number
+  channels: { channelId: number; type: string; partnerId: number | null; count: number }[]
+}
+
+export async function apiChatChannels(): Promise<ApiChatChannel[]> {
+  const { data } = await api.get<ApiChatChannel[]>('/chat/channels')
+  return data
+}
+
+export async function apiChatDiscoverChannels(): Promise<ApiChatChannel[]> {
+  const { data } = await api.get<ApiChatChannel[]>('/chat/channels/discover')
+  return data
+}
+
+export async function apiChatCreateChannel(name: string, type: 'PUBLIC' | 'PRIVATE', topic?: string): Promise<ApiChatChannel> {
+  const { data } = await api.post<ApiChatChannel>('/chat/channels', { name, type, topic })
+  return data
+}
+
+export async function apiChatOpenDm(userId: number): Promise<ApiChatChannel> {
+  const { data } = await api.post<ApiChatChannel>(`/chat/channels/dm/${userId}`)
+  return data
+}
+
+export async function apiChatJoinChannel(id: number): Promise<ApiChatChannel> {
+  const { data } = await api.post<ApiChatChannel>(`/chat/channels/${id}/join`)
+  return data
+}
+
+export async function apiChatLeaveChannel(id: number): Promise<void> {
+  await api.post(`/chat/channels/${id}/leave`)
+}
+
+export async function apiChatMessages(id: number, before?: number): Promise<ApiChatMessage[]> {
+  const { data } = await api.get<ApiChatMessage[]>(`/chat/channels/${id}/messages`, {
+    params: before != null ? { before } : undefined,
+  })
+  return data
+}
+
+export async function apiChatPostMessage(id: number, body: string): Promise<ApiChatMessage> {
+  const { data } = await api.post<ApiChatMessage>(`/chat/channels/${id}/messages`, { body })
+  return data
+}
+
+export async function apiChatEditMessage(id: number, body: string): Promise<ApiChatMessage> {
+  const { data } = await api.patch<ApiChatMessage>(`/chat/messages/${id}`, { body })
+  return data
+}
+
+export async function apiChatDeleteMessage(id: number): Promise<void> {
+  await api.delete(`/chat/messages/${id}`)
+}
+
+export async function apiChatReact(id: number, emoji: string, add: boolean): Promise<ApiChatMessage> {
+  const { data } = await api.post<ApiChatMessage>(`/chat/messages/${id}/reactions`, { emoji, add })
+  return data
+}
+
+export async function apiChatMarkRead(id: number): Promise<void> {
+  await api.post(`/chat/channels/${id}/read`)
+}
+
+export async function apiChatUnread(): Promise<ApiChatUnread> {
+  const { data } = await api.get<ApiChatUnread>('/chat/unread')
+  return data
+}
+
+export async function apiChatSearch(q: string): Promise<ApiChatMessage[]> {
+  const { data } = await api.get<ApiChatMessage[]>('/chat/search', { params: { q } })
+  return data
+}
+
 // ---------- Copilot ----------
 
 export interface ApiCopilotAnswer {

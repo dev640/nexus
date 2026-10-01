@@ -14,6 +14,7 @@ import { Backlog } from './pages/Backlog'
 import { Calendar } from './pages/Calendar'
 import { Wiki } from './pages/Wiki'
 import { Whiteboard } from './pages/Whiteboard'
+import { ChatPage } from './pages/Chat'
 import { Analytics } from './pages/Analytics'
 import { AICopilot } from './pages/AICopilot'
 import { Team } from './pages/Team'
@@ -56,6 +57,7 @@ function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/wiki" element={<Wiki />} />
               <Route path="/whiteboard" element={<Whiteboard />} />
+              <Route path="/slack" element={<ChatPage />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/ai" element={<AICopilot />} />
               <Route path="/team" element={<Team />} />

@@ -16,6 +16,7 @@ AI copilot — all on one data model.
 | Frontend | React 19 · TypeScript · Vite 8 · Tailwind 4 · React Router 7 · Zustand · axios |
 | Backend | Spring Boot 4.1 (Java 21) · Spring Security 7 · Spring Data JPA · Flyway · WebSocket |
 | Auth | Built-in email/password JWTs, plus **optional Supabase Auth** (see [Authentication](#authentication)) |
+| Chat | Slack-style channels, DMs, reactions, unread badges, mentions — live over WebSocket (`/ws/chat`) |
 | Data | PostgreSQL 16 · Redis 7 (whiteboard pub/sub) |
 | Local infra | Docker Compose (Postgres + Redis + API) |
 
@@ -169,12 +170,15 @@ regardless of which provider signed the user in.
 frontend/            React SPA — pages, components, Zustand store, API client
   src/lib/api.ts       typed client for every backend endpoint (JWT injected automatically)
   src/lib/whiteboardSocket.ts  live whiteboard connection with reconnect
+  src/lib/chatSocket.ts        live chat connection (messages, typing, presence)
+  src/pages/Chat.tsx           Slack page: channels, DMs, thread, composer
 backend/             Spring Boot API
   src/main/java/com/nexus/backend/web/       REST controllers
   src/main/java/com/nexus/backend/service/   business logic
+  src/main/java/com/nexus/backend/chat/      chat WebSocket + per-user delivery
   src/main/java/com/nexus/backend/whiteboard/ WebSocket + Redis fan-out
   src/main/java/com/nexus/backend/security/   JWT filter + optional Supabase token verifier
-  src/main/resources/db/migration/           Flyway migrations V1–V8
+  src/main/resources/db/migration/           Flyway migrations V1–V9
   src/test/java/                             service unit tests
 docker-compose.yml   Postgres + Redis + backend
 (no Railway config file — see "Backend → Railway" below)
