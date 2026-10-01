@@ -436,6 +436,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
       return
     }
     if (!getStoredToken()) return
+    try {
+      // Restore the session profile on reload — loadWorkspace only fills the
+      // workspace collections, leaving currentUser null (used by the sidebar,
+      // profile page and unread badge).
+      const me = await api.get<ApiUser>('/users/me')
+      get().applyCurrentUser(me.data)
+    } catch {
+      // Stale/invalid token: loadWorkspace below surfaces the failure as usual.
+    }
     await get().loadWorkspace()
   },
 
