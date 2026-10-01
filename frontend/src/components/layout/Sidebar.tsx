@@ -24,6 +24,7 @@ import {
 import { primaryNav, secondaryNav } from '../../lib/nav'
 import type { NavItem } from '../../lib/nav'
 import { useAppStore } from '../../store/useAppStore'
+import { useUnreadCount } from '../../hooks/useUnreadCount'
 
 const iconByPath: Record<string, LucideIcon> = {
   '/': Home,
@@ -44,7 +45,26 @@ const iconByPath: Record<string, LucideIcon> = {
   '/help': HelpCircle,
 }
 
-function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+function UnreadBadge({ count }: { count: number }) {
+  return (
+    <span
+      aria-label={`${count} unread messages`}
+      className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white"
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
+function NavRow({
+  item,
+  onNavigate,
+  unread,
+}: {
+  item: NavItem
+  onNavigate?: () => void
+  unread?: number
+}) {
   const Icon = iconByPath[item.path]
   return (
     <NavLink
@@ -61,6 +81,7 @@ function NavRow({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }
     >
       {Icon && <Icon size={16} strokeWidth={1.5} className="shrink-0" />}
       {item.label}
+      {item.path === '/slack' && unread != null && unread > 0 && <UnreadBadge count={unread} />}
     </NavLink>
   )
 }
@@ -75,6 +96,7 @@ export function Sidebar({
   const navigate = useNavigate()
   const userRole = useAppStore((s) => s.userRole)
   const logout = useAppStore((s) => s.logout)
+  const unreadTotal = useUnreadCount()
 
   function handleLogout() {
     logout()
@@ -113,7 +135,7 @@ export function Sidebar({
             </div>
             <nav className="flex flex-col gap-1">
               {primaryNav.map((item) => (
-                <NavRow key={item.path} item={item} onNavigate={onClose} />
+                <NavRow key={item.path} item={item} onNavigate={onClose} unread={unreadTotal} />
               ))}
             </nav>
           </div>
