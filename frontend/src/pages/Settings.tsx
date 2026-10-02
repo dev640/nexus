@@ -102,7 +102,7 @@ export function Settings() {
           </h2>
           <p className="mb-4 text-sm text-mute">
             Everyone in the workspace roster, available as assignees and team members.
-            New people join by registering on the login page.
+            There is no public signup — an admin creates each account from the Admin page.
           </p>
           <div className="flex flex-col gap-2">
             {members.map((m) => (
