@@ -189,4 +189,35 @@ class UserSprintServiceTest {
         assertThatThrownBy(() -> sprintService.findById(404L))
             .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void findAllReturnsEverySprintRegardlessOfProject() {
+        Sprint other = new Sprint();
+        other.setId(9L);
+        Project second = new Project("Second", "second", ProjectStatus.PLANNING, ProjectHealth.ON_TRACK);
+        second.setId(2L);
+        other.setProject(second);
+        other.setNumber(1);
+        other.setGoal("g");
+        other.setStartDate(LocalDate.now());
+        other.setEndDate(LocalDate.now().plusDays(7));
+        other.setStatus(SprintStatus.PLANNED);
+
+        Sprint mine = new Sprint();
+        mine.setId(1L);
+        mine.setProject(project);
+        mine.setNumber(2);
+        mine.setGoal("g");
+        mine.setStartDate(LocalDate.now());
+        mine.setEndDate(LocalDate.now().plusDays(7));
+        mine.setStatus(SprintStatus.ACTIVE);
+
+        when(sprintRepository.findAll()).thenReturn(java.util.List.of(mine, other));
+
+        // The frontend loads the whole workspace with no projectId filter; an
+        // empty list here is what left the Sprints page blank.
+        assertThat(sprintService.findAll())
+            .extracting(com.nexus.backend.dto.SprintResponse::id)
+            .containsExactly(1L, 9L);
+    }
 }

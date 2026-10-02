@@ -21,6 +21,7 @@ export interface Task {
   projectId: string
   sprintId?: string
   title: string
+  description?: string
   status: TaskStatus
   priority: TaskPriority
   storyPoints: number

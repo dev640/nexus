@@ -4,6 +4,7 @@ import {
   apiCreateProject,
   apiCreateSprint,
   apiCreateTask,
+  apiDeleteTask,
   apiErrorMessage,
   apiListProjects,
   apiListSprints,
@@ -12,6 +13,7 @@ import {
   apiLogin,
   apiUpdateMe,
   apiUpdateSprintStatus,
+  apiUpdateTask,
   apiUpdateTaskStatus,
   apiUpdateUserRole,
   apiUpdateWikiPage,
@@ -19,6 +21,7 @@ import {
   apiDeleteWikiPage,
   apiListWikiPages,
   apiListNotifications,
+  type ApiTask,
   apiMarkNotificationRead,
   apiMarkAllNotificationsRead,
   apiArchiveNotification,
@@ -72,6 +75,22 @@ function initialsOf(name: string): string {
 
 function mapUser(u: ApiUser): Member {
   return { id: toUserId(u.id), name: u.name, initials: initialsOf(u.name), role: u.role, utilization: 0 }
+}
+
+/** Single place where an API task becomes the shape the UI renders. */
+function mapTask(t: ApiTask): Task {
+  return {
+    id: toTaskId(t.id),
+    projectId: toProjectId(t.projectId),
+    sprintId: t.sprintId != null ? toSprintId(t.sprintId) : undefined,
+    title: t.title,
+    description: t.description ?? '',
+    status: t.status,
+    priority: t.priority,
+    storyPoints: t.storyPoints ?? 0,
+    assigneeId: t.assignee ? toUserId(t.assignee.id) : '',
+    labels: t.labels ?? [],
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +204,23 @@ interface NewTaskInput {
   assigneeId: string
 }
 
+interface TaskEditInput {
+  title: string
+  description?: string
+  projectId: string
+  sprintId?: string
+  status: TaskStatus
+  priority: TaskPriority
+  storyPoints: number
+  assigneeId: string
+  labels?: string[]
+}
+
+export interface TaskResult {
+  ok: boolean
+  error?: string
+}
+
 interface NewSprintInput {
   projectId: string
   goal: string
@@ -263,6 +299,8 @@ interface AppState {
   // Tasks
   addTask: (input: NewTaskInput) => Promise<Task | null>
   updateTaskStatus: (id: string, status: TaskStatus) => void
+  updateTask: (id: string, input: TaskEditInput) => Promise<TaskResult>
+  deleteTask: (id: string) => Promise<TaskResult>
 
   // Projects
   addProject: (input: NewProjectInput) => Promise<Project | null>
@@ -464,17 +502,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           committedPoints: s.committedPoints,
           status: s.status,
         })),
-        tasks: tasks.map((t) => ({
-          id: toTaskId(t.id),
-          projectId: toProjectId(t.projectId),
-          sprintId: t.sprintId != null ? toSprintId(t.sprintId) : undefined,
-          title: t.title,
-          status: t.status,
-          priority: t.priority,
-          storyPoints: t.storyPoints ?? 0,
-          assigneeId: t.assignee ? toUserId(t.assignee.id) : '',
-          labels: t.labels ?? [],
-        })),
+        tasks: tasks.map(mapTask),
         settings: { ...get().settings, displayName },
         isBootstrapped: true,
         isLoading: false,
@@ -498,22 +526,48 @@ export const useAppStore = create<AppState>()((set, get) => ({
         assigneeId: input.assigneeId ? parseId(input.assigneeId) : null,
         labels: [],
       })
-      const task: Task = {
-        id: toTaskId(created.id),
-        projectId: toProjectId(created.projectId),
-        sprintId: created.sprintId != null ? toSprintId(created.sprintId) : undefined,
-        title: created.title,
-        status: created.status,
-        priority: created.priority,
-        storyPoints: created.storyPoints ?? 0,
-        assigneeId: created.assignee ? toUserId(created.assignee.id) : '',
-        labels: created.labels ?? [],
-      }
+      const task = mapTask(created)
       set((state) => ({ tasks: [...state.tasks, task] }))
       return task
     } catch (err) {
       set({ syncError: apiErrorMessage(err, 'Failed to create task') })
       return null
+    }
+  },
+
+  updateTask: async (id, input) => {
+    const existing = get().tasks.find((t) => t.id === id)
+    if (!existing) return { ok: false, error: 'Task not found' }
+    try {
+      const updated = await apiUpdateTask(parseId(id), {
+        title: input.title,
+        description: input.description ?? '',
+        projectId: parseId(input.projectId),
+        sprintId: input.sprintId ? parseId(input.sprintId) : null,
+        status: input.status,
+        priority: input.priority,
+        storyPoints: input.storyPoints,
+        assigneeId: input.assigneeId ? parseId(input.assigneeId) : null,
+        labels: input.labels ?? existing.labels,
+      })
+      const task = { ...mapTask(updated), aiGenerated: existing.aiGenerated, blocked: existing.blocked }
+      set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? task : t)), syncError: null }))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: apiErrorMessage(err, 'Failed to update task') }
+    }
+  },
+
+  deleteTask: async (id) => {
+    const previous = get().tasks
+    // Optimistic like updateTaskStatus, with rollback if the server refuses.
+    set({ tasks: previous.filter((t) => t.id !== id), syncError: null })
+    try {
+      await apiDeleteTask(parseId(id))
+      return { ok: true }
+    } catch (err) {
+      set({ tasks: previous, syncError: apiErrorMessage(err, 'Failed to delete task') })
+      return { ok: false, error: apiErrorMessage(err, 'Failed to delete task') }
     }
   },
 

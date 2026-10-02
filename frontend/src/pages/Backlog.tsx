@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { memberById } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewTaskModal } from '../components/task/NewTaskModal'
+import { EditTaskModal } from '../components/task/EditTaskModal'
 
 const priorityColor: Record<string, string> = {
   URGENT: 'text-danger',
@@ -14,6 +15,7 @@ export function Backlog() {
   const tasks = useAppStore((s) => s.tasks)
   const members = useAppStore((s) => s.members)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
@@ -31,30 +33,34 @@ export function Backlog() {
       <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">Backlog</h1>
 
       <div className="mt-10 overflow-x-auto border border-line bg-white">
-        <div className="min-w-[720px] grid grid-cols-[100px_1fr_120px_100px_100px_140px] border-b border-line bg-paper px-4 py-2 text-xs font-semibold uppercase tracking-wide text-mute">
+        <div className="min-w-[720px] grid grid-cols-[100px_1fr_120px_100px_100px_140px_80px] border-b border-line bg-paper px-4 py-2 text-xs font-semibold uppercase tracking-wide text-mute">
           <span>ID</span>
           <span>Title</span>
           <span>Status</span>
           <span>Priority</span>
           <span>Points</span>
           <span>Assignee</span>
+          <span className="text-right">Actions</span>
         </div>
         {tasks.map((t) => {
           const assignee = memberById(members, t.assigneeId)
           return (
             <div
               key={t.id}
-              className="min-w-[720px] grid grid-cols-[100px_1fr_120px_100px_100px_140px] items-center border-b border-line px-4 py-3 text-sm last:border-0 hover:bg-paper/60"
+              className="min-w-[720px] grid grid-cols-[100px_1fr_120px_100px_100px_140px_80px] items-center border-b border-line px-4 py-3 text-sm last:border-0 hover:bg-paper/60"
             >
               <span className="font-mono text-xs text-mute">{t.id}</span>
-              <span className="flex items-center gap-2">
+              <button
+                onClick={() => setEditingId(t.id)}
+                className="flex items-center gap-2 text-left hover:underline"
+              >
                 {t.title}
                 {t.aiGenerated && (
                   <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-ink">
                     AI
                   </span>
                 )}
-              </span>
+              </button>
               <span className="text-xs text-mute">{t.status.replace('_', ' ')}</span>
               <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>
                 {t.priority}
@@ -68,12 +74,21 @@ export function Backlog() {
                 )}
                 {assignee?.name}
               </span>
+              <span className="flex justify-end">
+                <button
+                  onClick={() => setEditingId(t.id)}
+                  className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-white"
+                >
+                  Edit
+                </button>
+              </span>
             </div>
           )
         })}
       </div>
 
       <NewTaskModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <EditTaskModal taskId={editingId} onClose={() => setEditingId(null)} />
     </div>
   )
 }

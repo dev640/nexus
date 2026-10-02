@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { memberById, type TaskStatus } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewTaskModal } from '../components/task/NewTaskModal'
+import { EditTaskModal } from '../components/task/EditTaskModal'
 
 const columns: { key: TaskStatus; label: string }[] = [
   { key: 'BACKLOG', label: 'Backlog' },
@@ -25,6 +26,7 @@ export function Board() {
   const updateTaskStatus = useAppStore((s) => s.updateTaskStatus)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalStatus, setModalStatus] = useState<TaskStatus>('BACKLOG')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   function openNewTask(status: TaskStatus) {
     setModalStatus(status)
@@ -67,16 +69,23 @@ export function Board() {
                     >
                       <div className="mb-1 flex items-center justify-between">
                         <span className="font-mono text-xs text-mute">{t.id}</span>
-                        {t.blocked && (
-                          <span className="text-xs font-medium text-danger">Blocked</span>
-                        )}
-                        {t.aiGenerated && (
-                          <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-ink">
-                            AI
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {t.blocked && (
+                            <span className="text-xs font-medium text-danger">Blocked</span>
+                          )}
+                          {t.aiGenerated && (
+                            <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+                              AI
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="mb-2 leading-snug">{t.title}</div>
+                      <button
+                        onClick={() => setEditingId(t.id)}
+                        className="mb-2 block w-full text-left leading-snug hover:underline"
+                      >
+                        {t.title}
+                      </button>
                       <div className="mb-2 flex items-center justify-between">
                         <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>
                           {t.priority}
@@ -120,6 +129,7 @@ export function Board() {
       </div>
 
       <NewTaskModal open={modalOpen} onClose={() => setModalOpen(false)} defaultStatus={modalStatus} />
+      <EditTaskModal taskId={editingId} onClose={() => setEditingId(null)} />
     </div>
   )
 }

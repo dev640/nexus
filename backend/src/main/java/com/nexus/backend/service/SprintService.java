@@ -61,6 +61,13 @@ public class SprintService {
     }
 
     @Transactional(readOnly = true)
+    public List<SprintResponse> findAll() {
+        return sprintRepository.findAll().stream()
+            .map(this::mapToResponse)
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<SprintResponse> findByProjectId(Long projectId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));

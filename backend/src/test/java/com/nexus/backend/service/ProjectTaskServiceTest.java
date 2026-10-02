@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.nexus.backend.domain.project.Project;
 import com.nexus.backend.domain.project.ProjectHealth;
 import com.nexus.backend.domain.project.ProjectStatus;
+import com.nexus.backend.domain.sprint.Sprint;
 import com.nexus.backend.domain.task.Task;
 import com.nexus.backend.domain.task.TaskPriority;
 import com.nexus.backend.domain.task.TaskStatus;
@@ -19,6 +20,7 @@ import com.nexus.backend.dto.TaskRequest;
 import com.nexus.backend.dto.UserResponse;
 import com.nexus.backend.exception.ResourceNotFoundException;
 import com.nexus.backend.repository.ProjectRepository;
+import com.nexus.backend.repository.SprintRepository;
 import com.nexus.backend.repository.TaskRepository;
 import com.nexus.backend.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -39,6 +41,9 @@ class ProjectTaskServiceTest {
 
     @Mock
     private TaskRepository taskRepository;
+
+    @Mock
+    private SprintRepository sprintRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -184,5 +189,91 @@ class ProjectTaskServiceTest {
 
         assertThatThrownBy(() -> taskService.delete(505L))
             .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateTaskMovesTaskToTheRequestedProject() {
+        Project target = new Project("Second", "second", ProjectStatus.PLANNING, ProjectHealth.ON_TRACK);
+        target.setId(2L);
+        Task task = existingTask();
+        when(taskRepository.findById(5L)).thenReturn(Optional.of(task));
+        when(projectRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = taskService.update(5L, new TaskRequest(
+            "Moved", "d", 2L, null, TaskStatus.TODO, TaskPriority.HIGH, 5, null, List.of()));
+
+        // projectId was previously ignored, so the task silently stayed put.
+        assertThat(response.projectId()).isEqualTo(2L);
+        assertThat(response.projectName()).isEqualTo("Second");
+    }
+
+    @Test
+    void updateTaskKeepsStoryPointsWhenOmitted() {
+        Task task = existingTask();
+        task.setStoryPoints(8);
+        when(taskRepository.findById(5L)).thenReturn(Optional.of(task));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = taskService.update(5L, new TaskRequest(
+            "No points given", null, 1L, null, TaskStatus.TODO, TaskPriority.LOW, null, null, List.of()));
+
+        // story_points is NOT NULL: an omitted field must not null the column.
+        assertThat(response.storyPoints()).isEqualTo(8);
+    }
+
+    @Test
+    void updateTaskRejectsSprintFromAnotherProject() {
+        Project other = new Project("Second", "second", ProjectStatus.PLANNING, ProjectHealth.ON_TRACK);
+        other.setId(2L);
+        Sprint foreignSprint = new Sprint();
+        foreignSprint.setId(9L);
+        foreignSprint.setProject(other);
+        foreignSprint.setNumber(1);
+        foreignSprint.setGoal("g");
+        foreignSprint.setStartDate(java.time.LocalDate.now());
+        foreignSprint.setEndDate(java.time.LocalDate.now().plusDays(7));
+
+        Task task = existingTask();
+        when(taskRepository.findById(5L)).thenReturn(Optional.of(task));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(sprintRepository.findById(9L)).thenReturn(Optional.of(foreignSprint));
+
+        assertThatThrownBy(() -> taskService.update(5L, new TaskRequest(
+            "Cross project", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of())))
+            .isInstanceOf(com.nexus.backend.exception.ValidationException.class)
+            .hasMessageContaining("different project");
+    }
+
+    @Test
+    void createTaskRejectsSprintFromAnotherProject() {
+        Project other = new Project("Second", "second", ProjectStatus.PLANNING, ProjectHealth.ON_TRACK);
+        other.setId(2L);
+        Sprint foreignSprint = new Sprint();
+        foreignSprint.setId(9L);
+        foreignSprint.setProject(other);
+        foreignSprint.setNumber(1);
+        foreignSprint.setGoal("g");
+        foreignSprint.setStartDate(java.time.LocalDate.now());
+        foreignSprint.setEndDate(java.time.LocalDate.now().plusDays(7));
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(sprintRepository.findById(9L)).thenReturn(Optional.of(foreignSprint));
+
+        assertThatThrownBy(() -> taskService.create(new TaskRequest(
+            "x", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of())))
+            .isInstanceOf(com.nexus.backend.exception.ValidationException.class);
+    }
+
+    private Task existingTask() {
+        Task task = new Task();
+        task.setId(5L);
+        task.setTitle("t");
+        task.setProject(project);
+        task.setStatus(TaskStatus.TODO);
+        task.setPriority(TaskPriority.MEDIUM);
+        task.setLabels(new java.util.ArrayList<>());
+        return task;
     }
 }

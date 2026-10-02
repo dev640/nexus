@@ -268,6 +268,15 @@ export async function apiUpdateTaskStatus(id: number, status: ApiTaskStatus): Pr
   return data
 }
 
+export async function apiUpdateTask(id: number, input: ApiTaskInput): Promise<ApiTask> {
+  const { data } = await api.put<ApiTask>(`/tasks/${id}`, input)
+  return data
+}
+
+export async function apiDeleteTask(id: number): Promise<void> {
+  await api.delete(`/tasks/${id}`)
+}
+
 // ---------- Wiki ----------
 
 export interface ApiWikiPage {

@@ -21,12 +21,11 @@ public class SprintController {
 
     @GetMapping
     public ResponseEntity<List<SprintResponse>> listSprints(@RequestParam(required = false) Long projectId) {
-        List<SprintResponse> sprints;
-        if (projectId != null) {
-            sprints = sprintService.findByProjectId(projectId);
-        } else {
-            sprints = List.of();
-        }
+        // Without a projectId this is "all sprints": the frontend loads the whole
+        // workspace at once. Returning an empty list here left the Sprints page blank.
+        List<SprintResponse> sprints = projectId != null
+            ? sprintService.findByProjectId(projectId)
+            : sprintService.findAll();
         return ResponseEntity.ok(sprints);
     }
 
