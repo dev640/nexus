@@ -52,13 +52,18 @@ export function Backlog() {
               <span className="font-mono text-xs text-mute">{t.id}</span>
               <button
                 onClick={() => setEditingId(t.id)}
-                className="flex items-center gap-2 text-left hover:underline"
+                className="flex min-w-0 flex-col items-start gap-0.5 text-left hover:underline"
               >
-                {t.title}
-                {t.aiGenerated && (
-                  <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-ink">
-                    AI
-                  </span>
+                <span className="flex items-center gap-2">
+                  {t.title}
+                  {t.aiGenerated && (
+                    <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+                      AI
+                    </span>
+                  )}
+                </span>
+                {t.description && (
+                  <span className="truncate text-xs font-normal text-mute">{t.description}</span>
                 )}
               </button>
               <span className="text-xs text-mute">{t.status.replace('_', ' ')}</span>

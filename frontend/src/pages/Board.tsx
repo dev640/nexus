@@ -85,6 +85,11 @@ export function Board() {
                         className="mb-2 block w-full text-left leading-snug hover:underline"
                       >
                         {t.title}
+                        {t.description && (
+                          <span className="mt-1 block text-xs font-normal leading-snug text-mute">
+                            {t.description}
+                          </span>
+                        )}
                       </button>
                       <div className="mb-2 flex items-center justify-between">
                         <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>

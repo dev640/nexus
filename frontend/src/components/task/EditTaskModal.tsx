@@ -43,6 +43,7 @@ export function EditTaskModal({
   useEffect(() => {
     if (!task) return
     setTitle(task.title)
+    setDescription(task.description ?? '')
     setProjectId(task.projectId)
     setSprintId(task.sprintId ?? '')
     setStatus(task.status)
@@ -77,6 +78,7 @@ export function EditTaskModal({
     setError('')
     const result = await updateTask(task.id, {
       title: title.trim(),
+      description: description.trim(),
       projectId,
       sprintId: sprintId || undefined,
       status,
