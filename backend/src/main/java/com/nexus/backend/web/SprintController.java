@@ -1,8 +1,8 @@
 package com.nexus.backend.web;
 
-import com.nexus.backend.domain.sprint.SprintStatus;
 import com.nexus.backend.dto.SprintRequest;
 import com.nexus.backend.dto.SprintResponse;
+import com.nexus.backend.dto.SprintStatusRequest;
 import com.nexus.backend.service.SprintService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sprints")
@@ -46,10 +45,9 @@ public class SprintController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<SprintResponse> updateSprintStatus(
         @PathVariable Long id,
-        @RequestBody Map<String, String> payload
+        @Valid @RequestBody SprintStatusRequest request
     ) {
-        SprintStatus newStatus = SprintStatus.valueOf(payload.get("status"));
-        SprintResponse sprint = sprintService.updateStatus(id, newStatus);
+        SprintResponse sprint = sprintService.updateStatus(id, request.status());
         return ResponseEntity.ok(sprint);
     }
 }
