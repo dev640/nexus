@@ -128,7 +128,15 @@ export function Sidebar({
         <div className="flex flex-col gap-1 overflow-y-auto overscroll-contain touch-pan-y">
           <div>
             <div className="mb-6 flex items-center justify-between px-3">
-              <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
+              <NavLink
+                to="/"
+                end
+                onClick={onClose}
+                aria-label="Nexus home"
+                className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+              >
+                <img src="/logo-wordmark.png" alt="Nexus" className="h-7 w-auto" />
+              </NavLink>
               <button
                 onClick={onClose}
                 aria-label="Close menu"

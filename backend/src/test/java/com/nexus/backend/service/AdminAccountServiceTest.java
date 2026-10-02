@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nexus.backend.config.SupabaseProperties;
 import com.nexus.backend.domain.user.PasswordResetRequest;
 import com.nexus.backend.domain.user.ResetRequestStatus;
 import com.nexus.backend.domain.user.User;
@@ -43,6 +44,9 @@ class AdminAccountServiceTest {
 
     @Mock
     private SupabaseAdminClient supabaseAdminClient;
+
+    @Mock
+    private SupabaseProperties supabaseProperties;
 
     @InjectMocks
     private AdminAccountService service;
@@ -112,6 +116,40 @@ class AdminAccountServiceTest {
         assertThatThrownBy(() -> service.createUser(new CreateUserRequest("Dup", "dup@nexus.com", null, null)))
             .isInstanceOf(ValidationException.class)
             .hasMessageContaining("already exists");
+    }
+
+    @Test
+    void createUserRefusesWhenSupabaseSignInCannotBeProvisioned() {
+        // Supabase is the workspace's auth mode but the Admin API key is missing, so
+        // a local-only account would be created that the login screen can never use.
+        when(supabaseProperties.isEnabled()).thenReturn(true);
+        when(supabaseAdminClient.isAvailable()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.createUser(new CreateUserRequest("New", "new@nexus.com", null, null)))
+            .isInstanceOf(ValidationException.class)
+            .hasMessageContaining("NEXUS_SUPABASE_SERVICE_ROLE_KEY");
+
+        // Nothing may be persisted when the account could not be made usable.
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createUserStillFallsBackToALocalPasswordWhenSupabaseIsOffEntirely() {
+        stubSave();
+        when(userRepository.findByEmail("local@nexus.com")).thenReturn(Optional.empty());
+        when(userRepository.findFirstByEmailIgnoreCase("local@nexus.com")).thenReturn(Optional.empty());
+        when(supabaseProperties.isEnabled()).thenReturn(false);
+        when(supabaseAdminClient.isAvailable()).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("bcrypt-hash");
+
+        var created = service.createUser(new CreateUserRequest("Local User", "local@nexus.com", null, null));
+
+        // A purely local workspace has no Supabase dependency, so provisioning works.
+        assertThat(created.email()).isEqualTo("local@nexus.com");
+        var saved = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getPassword()).isEqualTo("bcrypt-hash");
+        assertThat(saved.getValue().getSupabaseId()).isNull();
     }
 
     // ---------- password reset requests ----------

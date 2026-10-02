@@ -1,5 +1,6 @@
 package com.nexus.backend.service;
 
+import com.nexus.backend.config.SupabaseProperties;
 import com.nexus.backend.domain.user.PasswordResetRequest;
 import com.nexus.backend.domain.user.ResetRequestStatus;
 import com.nexus.backend.domain.user.User;
@@ -48,18 +49,21 @@ public class AdminAccountService {
     private final PasswordResetRequestRepository resetRequestRepository;
     private final PasswordEncoder passwordEncoder;
     private final SupabaseAdminClient supabaseAdminClient;
+    private final SupabaseProperties supabaseProperties;
     private final SecureRandom random = new SecureRandom();
 
     public AdminAccountService(
         UserRepository userRepository,
         PasswordResetRequestRepository resetRequestRepository,
         PasswordEncoder passwordEncoder,
-        SupabaseAdminClient supabaseAdminClient
+        SupabaseAdminClient supabaseAdminClient,
+        SupabaseProperties supabaseProperties
     ) {
         this.userRepository = userRepository;
         this.resetRequestRepository = resetRequestRepository;
         this.passwordEncoder = passwordEncoder;
         this.supabaseAdminClient = supabaseAdminClient;
+        this.supabaseProperties = supabaseProperties;
     }
 
     // ---------------------------------------------------------------- users
@@ -70,6 +74,17 @@ public class AdminAccountService {
      */
     @Transactional
     public CreatedUserResponse createUser(CreateUserRequest request) {
+        // If the workspace authenticates through Supabase but the Admin API is
+        // unreachable, a local-only account would be created that the login screen
+        // can never authenticate — the admin would believe it worked. Refuse
+        // instead, matching what resolveRequest already does.
+        if (supabaseProperties.isEnabled() && !supabaseAdminClient.isAvailable()) {
+            throw new ValidationException(
+                "This workspace signs in through Supabase. Set NEXUS_SUPABASE_SERVICE_ROLE_KEY "
+                    + "on the server so the new account can actually be used to sign in."
+            );
+        }
+
         String email = normalize(request.email());
         if (userRepository.findByEmail(email).isPresent()
             || userRepository.findFirstByEmailIgnoreCase(email).isPresent()) {
