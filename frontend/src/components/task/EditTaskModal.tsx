@@ -73,7 +73,17 @@ export function EditTaskModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!task || !title.trim() || !projectId) return
+    if (!task) return
+    if (!title.trim()) {
+      // Previously this returned silently, so an empty title looked like a
+      // button that did nothing.
+      setError('Title is required')
+      return
+    }
+    if (!projectId) {
+      setError('Pick a project')
+      return
+    }
     setSaving(true)
     setError('')
     const result = await updateTask(task.id, {
