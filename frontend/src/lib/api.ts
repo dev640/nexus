@@ -535,8 +535,22 @@ export function whiteboardSocketUrl(): string {
 /** Extract a human-readable message from an axios/network error. */
 export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { message?: string; error?: string } | undefined
-    return data?.message || data?.error || err.message || fallback
+    const data = err.response?.data
+    if (data && typeof data === 'object') {
+      const body = data as Record<string, unknown>
+      const detail = body.message ?? body.error
+      if (typeof detail === 'string' && detail) return detail
+      // Bean-validation failures come back as a flat { field: message } map with
+      // no message/error key. Without this branch every rejected form showed only
+      // axios's "Request failed with status code 400".
+      const fieldMessages = Object.entries(body).filter(
+        ([key, value]) => key !== 'status' && key !== 'timestamp' && typeof value === 'string'
+      )
+      if (fieldMessages.length > 0) {
+        return fieldMessages.map(([, message]) => message).join('; ')
+      }
+    }
+    return fallback
   }
   if (err instanceof Error) return err.message
   return fallback
