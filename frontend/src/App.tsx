@@ -24,12 +24,21 @@ import { Admin } from './pages/Admin'
 
 function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+  const isBootstrapped = useAppStore((s) => s.isBootstrapped)
   const userRole = useAppStore((s) => s.userRole)
   const bootstrapFromStoredToken = useAppStore((s) => s.bootstrapFromStoredToken)
 
   useEffect(() => {
     void bootstrapFromStoredToken()
   }, [bootstrapFromStoredToken])
+
+  // A Supabase session is not visible to `isAuthenticated`'s initial value, which
+  // only reads the stored Nexus token. Rendering the public routes during that
+  // window sent deep links (e.g. a refresh on /admin) to the catch-all and then
+  // to "/", losing the requested page. Wait for the session to be resolved first.
+  if (!isBootstrapped) {
+    return null
+  }
 
   if (!isAuthenticated) {
     return (

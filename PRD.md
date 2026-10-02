@@ -348,7 +348,8 @@ docker compose up -d --build
 # 2. Frontend dev server (proxies /api and /ws to localhost:8080)
 cd frontend && npm install && npm run dev        # http://localhost:5173
 
-# 3. Seed logins (password: password123)
+# 3. Seed logins. With Supabase unconfigured the password is `password123`;
+#    once it is configured, admins issue passwords from the Admin page.
 #    devendra@nexus.com (ADMIN) · achal@nexus.com · vidhi@nexus.com · palak@nexus.com
 
 # 4. Quality gates

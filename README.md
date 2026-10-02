@@ -37,7 +37,8 @@ configuration is needed locally.
 
 ### Seed logins
 
-Password for all seed accounts: **`password123`**
+Accounts are **admin-provisioned** — there is no public signup, and
+`POST /api/auth/register` is ADMIN-only.
 
 | Email | Role |
 |-------|------|
@@ -46,8 +47,14 @@ Password for all seed accounts: **`password123`**
 | `vidhi@nexus.com` | MEMBER |
 | `palak@nexus.com` | MEMBER |
 
-Flyway applies `V1 → V8` on first boot, including the seed data above. These seed logins keep
-working until you configure Supabase; see [Authentication](#authentication).
+Before Supabase is configured these sign in with the built-in flow and the seeded
+password **`password123`**. Once Supabase is configured, each account signs in
+through Supabase and its password is set there instead, so `password123` no longer
+applies; an admin issues passwords from **Admin → Create an account** or
+**Admin → Password requests**. Linking an account to Supabase also clears its local
+password hash, so the two credentials never both work.
+
+Flyway applies `V1 → V10` on first boot, including the seed data above.
 
 ---
 
