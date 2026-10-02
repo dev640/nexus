@@ -33,6 +33,19 @@ public class SupabaseProperties {
     /** Issuer claim expected in Supabase tokens; derived from {@link #url} when blank. */
     private String issuer;
 
+    /**
+     * Service-role (admin) API key. Server-side only: it can create users and
+     * set any password, so it must never reach the browser, the repository or a
+     * frontend build. Required for admin-provisioned accounts and admin-issued
+     * password resets, because Supabase — not this app — stores those passwords.
+     */
+    private String serviceRoleKey;
+
+    /** True when the Admin API can be used: needs a URL and the service-role key. */
+    public boolean isAdminApiAvailable() {
+        return url != null && !url.isBlank() && serviceRoleKey != null && !serviceRoleKey.isBlank();
+    }
+
     public boolean isEnabled() {
         return url != null && !url.isBlank() && (useJwks || (jwtSecret != null && !jwtSecret.isBlank()));
     }
@@ -58,4 +71,7 @@ public class SupabaseProperties {
 
     public String getIssuer() { return issuer; }
     public void setIssuer(String issuer) { this.issuer = issuer; }
+
+    public String getServiceRoleKey() { return serviceRoleKey; }
+    public void setServiceRoleKey(String serviceRoleKey) { this.serviceRoleKey = serviceRoleKey; }
 }

@@ -20,9 +20,11 @@ import { AICopilot } from './pages/AICopilot'
 import { Team } from './pages/Team'
 import { Settings } from './pages/Settings'
 import { Help } from './pages/Help'
+import { Admin } from './pages/Admin'
 
 function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
+  const userRole = useAppStore((s) => s.userRole)
   const bootstrapFromStoredToken = useAppStore((s) => s.bootstrapFromStoredToken)
 
   useEffect(() => {
@@ -63,6 +65,16 @@ function App() {
               <Route path="/team" element={<Team />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/help" element={<Help />} />
+              <Route
+                path="/admin"
+                element={
+                  userRole === 'ADMIN' ? (
+                    <Admin />
+                  ) : (
+                    <Navigate to="/settings" replace />
+                  )
+                }
+              />
             </Routes>
           </AppShell>
         }

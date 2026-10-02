@@ -2,9 +2,12 @@ package com.nexus.backend.web;
 
 import com.nexus.backend.domain.user.User;
 import com.nexus.backend.domain.user.UserRole;
+import com.nexus.backend.dto.CreateUserRequest;
+import com.nexus.backend.dto.CreatedUserResponse;
 import com.nexus.backend.dto.UserResponse;
 import com.nexus.backend.exception.ResourceNotFoundException;
 import com.nexus.backend.repository.UserRepository;
+import com.nexus.backend.service.AdminAccountService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,16 +26,30 @@ import java.util.List;
 
 /**
  * User management endpoints. Self-service profile updates are open to any
- * authenticated user; role changes are ADMIN-only.
+ * authenticated user; account creation and role changes are ADMIN-only.
  */
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
 
     private final UserRepository userRepository;
+    private final AdminAccountService adminAccountService;
 
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, AdminAccountService adminAccountService) {
         this.userRepository = userRepository;
+        this.adminAccountService = adminAccountService;
+    }
+
+    /**
+     * Creates an account on an admin's behalf. There is no public signup: the
+     * only way into the workspace is through an admin.
+     */
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CreatedUserResponse> createUser(
+        @Valid @RequestBody CreateUserRequest payload
+    ) {
+        return ResponseEntity.ok(adminAccountService.createUser(payload));
     }
 
     @GetMapping

@@ -10,7 +10,6 @@ import {
   apiListTasks,
   apiListUsers,
   apiLogin,
-  apiRegister,
   apiUpdateMe,
   apiUpdateSprintStatus,
   apiUpdateTaskStatus,
@@ -31,7 +30,7 @@ import {
   storeToken,
   type ApiUser,
 } from '../lib/api'
-import { supabase, supabaseEnabled, supabaseSignIn, supabaseSignOut, supabaseSignUp } from '../lib/supabase'
+import { supabase, supabaseEnabled, supabaseSignIn, supabaseSignOut } from '../lib/supabase'
 import { connectWhiteboardSocket, type WhiteboardEventPayload } from '../lib/whiteboardSocket'
 import type {
   Member,
@@ -254,7 +253,6 @@ interface AppState {
 
   // Auth
   login: (email: string, password: string) => Promise<AuthResult>
-  register: (name: string, email: string, password: string) => Promise<AuthResult>
   logout: () => void
   bootstrapFromStoredToken: () => Promise<void>
   applyCurrentUser: (user: ApiUser) => void
@@ -372,32 +370,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
   },
 
-  register: async (name, email, password) => {
-    try {
-      if (supabaseEnabled && supabase) {
-        const result = await supabaseSignUp(name, email, password)
-        if (!result.ok) return { ok: false, error: result.error }
-        // When email confirmation is on there is no session yet — the user
-        // must verify before signing in. Report that as success-with-note.
-        const { data } = await supabase.auth.getSession()
-        if (!data.session) {
-          return { ok: true }
-        }
-        const me = await api.get<ApiUser>('/users/me')
-        get().applyCurrentUser(me.data)
-        await get().loadWorkspace()
-        return { ok: true }
-      }
-      const auth = await apiRegister(name, email, password)
-      storeToken(auth.token)
-      get().applyCurrentUser(auth.user)
-      await get().loadWorkspace()
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, error: apiErrorMessage(err, 'Registration failed') }
-    }
-  },
-
   logout: () => {
     void supabaseSignOut()
     storeToken(null)
@@ -464,7 +436,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       void get().loadNotifications()
 
       const members = users.map(mapUser)
-      const displayName = get().settings.displayName || members[0]?.name || ''
+      // Fall back to the signed-in user's own profile, never to a teammate:
+      // members[0] is whoever the API listed first, so the greeting could
+      // greet someone with another member's name.
+      const displayName =
+        get().settings.displayName || get().currentUser?.name || ''
 
       set({
         members,

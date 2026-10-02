@@ -26,6 +26,9 @@ import type { NavItem } from '../../lib/nav'
 import { useAppStore } from '../../store/useAppStore'
 import { useUnreadCount } from '../../hooks/useUnreadCount'
 
+/** Admin-only entry, kept out of the shared arrays so non-admins never see it. */
+const adminNavItem: NavItem = { label: 'Admin', path: '/admin' }
+
 const iconByPath: Record<string, LucideIcon> = {
   '/': Home,
   '/my-work': ListChecks,
@@ -43,6 +46,7 @@ const iconByPath: Record<string, LucideIcon> = {
   '/team': Users,
   '/settings': Settings,
   '/help': HelpCircle,
+  '/admin': ShieldCheck,
 }
 
 function UnreadBadge({ count }: { count: number }) {
@@ -144,10 +148,7 @@ export function Sidebar({
               <NavRow key={item.path} item={item} onNavigate={onClose} />
             ))}
             {userRole === 'ADMIN' && (
-              <div className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink/70">
-                <ShieldCheck size={16} strokeWidth={1.5} className="shrink-0" />
-                Admin
-              </div>
+              <NavRow item={adminNavItem} onNavigate={onClose} />
             )}
             <button
               onClick={handleLogout}

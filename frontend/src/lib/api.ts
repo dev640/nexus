@@ -115,6 +115,14 @@ export async function apiRegister(name: string, email: string, password: string)
   return data
 }
 
+/**
+ * Files a password-reset request. Public, and always resolves successfully —
+ * the endpoint never reveals whether the address is registered.
+ */
+export async function apiRequestPasswordReset(email: string, note?: string): Promise<void> {
+  await api.post('/auth/password-reset-request', { email, note: note || null })
+}
+
 // ---------- Users ----------
 
 export async function apiListUsers(): Promise<ApiUser[]> {
@@ -130,6 +138,60 @@ export async function apiUpdateMe(name: string): Promise<ApiUser> {
 export async function apiUpdateUserRole(id: number, role: ApiUserRole): Promise<ApiUser> {
   const { data } = await api.patch<ApiUser>(`/users/${id}/role`, { role })
   return data
+}
+
+export interface ApiCreateUserInput {
+  name: string
+  email: string
+  /** Omit to have the server generate one. */
+  password?: string
+  role?: ApiUserRole
+}
+
+export interface ApiCreatedUser {
+  id: number
+  name: string
+  email: string
+  role: ApiUserRole
+  /** Present only when the server generated it; shown once and never stored. */
+  password: string | null
+}
+
+/** ADMIN-only. There is no public signup: accounts are provisioned from here. */
+export async function apiCreateUser(input: ApiCreateUserInput): Promise<ApiCreatedUser> {
+  const { data } = await api.post<ApiCreatedUser>('/users', input)
+  return data
+}
+
+export type ApiResetRequestStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED'
+
+export interface ApiPasswordResetRequest {
+  id: number
+  userId: number
+  userName: string
+  userEmail: string
+  status: ApiResetRequestStatus
+  requestedAt: string
+  resolvedAt: string | null
+  resolvedByName: string | null
+  note: string | null
+}
+
+export async function apiListPasswordResets(pendingOnly = false): Promise<ApiPasswordResetRequest[]> {
+  const { data } = await api.get<ApiPasswordResetRequest[]>('/admin/password-resets', {
+    params: { pendingOnly },
+  })
+  return data
+}
+
+/** Issues a new password and returns it once, for the admin to hand over. */
+export async function apiResolvePasswordReset(id: number): Promise<ApiCreatedUser> {
+  const { data } = await api.post<ApiCreatedUser>(`/admin/password-resets/${id}/resolve`)
+  return data
+}
+
+export async function apiDismissPasswordReset(id: number): Promise<void> {
+  await api.post(`/admin/password-resets/${id}/dismiss`)
 }
 
 // ---------- Projects ----------

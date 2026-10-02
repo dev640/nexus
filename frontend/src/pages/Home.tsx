@@ -40,9 +40,15 @@ export function Home() {
         Overview
       </div>
       <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl lg:text-5xl">
-        {greeting},
-        <br />
-        {displayName.toUpperCase()}.
+        {greeting}
+        {displayName ? (
+          <>
+            ,<br />
+            {displayName.toUpperCase()}.
+          </>
+        ) : (
+          '.'
+        )}
       </h1>
       <p className="mt-3 text-base text-mute">Here's what needs your attention.</p>
 
