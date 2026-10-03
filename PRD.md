@@ -158,16 +158,17 @@ Legend — **✅ Built** (implemented + verified against the running stack) · *
 ## 4. Non-Functional Requirements
 
 - **NFR-1 Performance** — API responses are single-digit to low-tens of milliseconds against
-  seeded data volumes; the frontend bundle is **403 kB (118 kB gzipped)**.
+  seeded data volumes; the frontend bundle is **469 kB (133 kB gzipped)**, as reported by the
+  last production build.
 - **NFR-2 Security** — Passwords are hashed with BCrypt; JWTs use HS256 with a secret supplied by
   environment (≥32 bytes, enforced by jjwt); token types are separated; auth endpoints are rate
   limited; CORS origins come from the environment; secrets are never committed (`.env*` ignored).
 - **NFR-3 Data integrity** — Flyway owns the schema (`ddl-auto=validate`); migrations are
   append-only and never edited after being applied; orphaned columns were migrated, not dropped.
 - **NFR-4 Reliability** — The full stack starts from a clean checkout with one command
-  (`docker compose up -d --build`) and migrates `V1 → V7` on boot.
-- **NFR-5 Quality gates** — CI runs frontend lint + production build and the backend unit test
-  suite (**17 tests**) plus a clean image build on every push/PR to `main`.
+  (`docker compose up -d --build`) and migrates `V1 → V12` on boot.
+- **NFR-5 Quality gates** — CI runs frontend lint + component/store tests (Vitest) + production
+  build and the backend unit test suite, plus a clean image build, on every push/PR to `main`.
 - **NFR-6 Portability** — The backend is a plain Docker image that honours the platform-provided
   `PORT`; the frontend builds to static assets.
 
@@ -299,6 +300,18 @@ full list and generation hints.
 | 7 | Optional LLM-backed Copilot with grounded fallback | ✅ Done |
 | 8 | Production deployment config and hardening | ✅ Done |
 
+### Production-hardening plan (after first deploy)
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| 0 | UI truthfulness — the interface reports what the data actually says | ✅ Done |
+| 1 | `VIEWER` read-only enforcement via `@WorkspaceWrite` on every write endpoint | ✅ Done |
+| 2 | Employee identity — employee codes and avatars in their own table | ✅ Done |
+| 3 | Copilot diagnosability — named provider and a surfaced failure reason | ✅ Done |
+| 4 | Destructive actions — entity deletes, plus a task `blocked` flag | ✅ Done |
+| 5 | Frontend test harness, dead-code sweep, store split into per-domain slices | ✅ Done |
+| 6 | Operations runbook and documentation accuracy | ✅ Done |
+
 ### Phase 8 detail
 - Refresh-token endpoint with token-type separation (an access token cannot be replayed).
 - Per-IP rate limiting on `/api/auth/**` with a bounded in-memory window (verified 429s).
@@ -327,12 +340,15 @@ full list and generation hints.
 5. The backend's public URL is created at **Settings → Networking → Generate Domain**.
 
 ### Frontend — Vercel
-1. The Vercel project is connected to `dev640/nexus2.0` (`main`); root directory
-   `frontend/`, framework Vite, output `dist`.
+1. The Vercel project is connected to `dev640/nexus2.0` (`main`) and builds the **repo root**
+   with [`vercel.json`](vercel.json), installing and building in `frontend/` and serving
+   `frontend/dist`. ([`frontend/vercel.json`](frontend/vercel.json) covers a project whose root
+   directory is `frontend/` instead.)
 2. Set `VITE_API_URL` to the backend's public URL **plus `/api`** (e.g.
    `https://your-backend.up.railway.app/api`), then redeploy — Vite inlines `VITE_*`
    variables at build time, so adding the variable alone changes nothing.
 3. Every push to `main` deploys automatically; the SPA rewrite keeps client routes working.
+4. Verifying and rolling back a deploy: [`OPERATIONS.md`](OPERATIONS.md).
 
 > The backend is **not** a serverless function — it is a long-running Spring Boot container,
 > which is what allows the WebSocket-based whiteboard to work in production.
@@ -353,12 +369,12 @@ cd frontend && npm install && npm run dev        # http://localhost:5173
 #    devendra@nexus.com (ADMIN) · achal@nexus.com · vidhi@nexus.com · palak@nexus.com
 
 # 4. Quality gates
-docker build --target test ./backend             # backend unit tests (17)
-cd frontend && npx tsc -b && npm run lint && npm run build
+docker build --target test ./backend             # backend unit tests
+cd frontend && npm run lint && npm test && npm run build
 ```
 
 ### Verified end to end
-- Clean database volume → Flyway applies `V1 → V8` with seed data.
+- Clean database volume → Flyway applies `V1 → V12` with seed data.
 - Login, refresh-token exchange, and rejection of an access token used as a refresh token.
 - Anonymous `/api/*` → **403**; authenticated access to all eight domains → **200**.
 - Task creation, board status change and whiteboard note create/delete persist to Postgres.
@@ -380,22 +396,23 @@ cd frontend && npx tsc -b && npm run lint && npm run build
 
 ## 9. Known Gaps & Next Milestones
 
-1. **`VIEWER` is not enforced per-endpoint.** The role exists and is assignable; read-only
-   enforcement across controllers is the next permission milestone.
-2. **Team/team-assignment UI is still client-side.** Member and team grouping on the Team page is
+1. **Team/team-assignment UI is still client-side.** Member and team grouping on the Team page is
    not backed by tables yet, unlike users and roles which are real.
-3. **Refresh tokens are not rotated client-side.** The endpoint and token types exist; the
+2. **Refresh tokens are not rotated client-side.** The endpoint and token types exist; the
    frontend holds a 24 h access token and does not yet silently refresh on 401.
-4. **A dev-only JWT fallback secret is present in `application.properties`.** Production must set
+3. **A dev-only JWT fallback secret is present in `application.properties`.** Production must set
    `NEXUS_JWT_SECRET`; a startup check that refuses the default profile is a worthwhile hardening.
-5. **Rate limiting is per instance.** A shared Redis counter is needed for multi-instance
+4. **Rate limiting is per instance.** A shared Redis counter is needed for multi-instance
    deployments.
-6. **The Supabase JWKS path is not yet exercised against a real project.** HS256 verification is
+5. **The Supabase JWKS path is not yet exercised against a real project.** HS256 verification is
    covered by unit tests and the end-to-end smoke; the `NEXUS_SUPABASE_USE_JWKS=true` branch
    (RS256/ES256, JWKS caching and rotation refetch) is implemented but only unit-tested.
-7. **No end-to-end (browser) test suite in CI.** Coverage today is backend unit tests plus
-   frontend lint/build; a Playwright smoke path would guard the wiring regressions found during
-   Phase 1.
+6. **No browser-level end-to-end suite in CI.** Coverage is backend unit tests plus frontend
+   Vitest (components and store); a Playwright smoke path would guard the wiring regressions found
+   during the integration phase.
+7. **No log or metric shipping off the platform.** Health is observable (`/api/health`,
+   `/actuator/health`) and logs live on Railway and Vercel, but nothing is forwarded to an
+   aggregator or alerting. [`OPERATIONS.md`](OPERATIONS.md) §9 is the interim incident path.
 
 ---
 

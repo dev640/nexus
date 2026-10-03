@@ -6,6 +6,7 @@ AI copilot — all on one data model.
 
 > **Product requirements, API surface and delivery history: [`PRD.md`](PRD.md).**
 > **Deployment variables: [`.env.example`](.env.example).**
+> **Day-2 operations (deploy, verify, roll back, troubleshoot): [`OPERATIONS.md`](OPERATIONS.md).**
 
 ---
 
@@ -54,7 +55,8 @@ applies; an admin issues passwords from **Admin → Create an account** or
 **Admin → Password requests**. Linking an account to Supabase also clears its local
 password hash, so the two credentials never both work.
 
-Flyway applies `V1 → V10` on first boot, including the seed data above.
+Flyway applies `V1 → V12` on first boot, including the seed data above. A fresh database has no chat
+channels — create one from the Chat page.
 
 ---
 
@@ -106,6 +108,7 @@ the WebSocket whiteboard work in production.
    | `REDIS_URL` | `${{Redis.REDIS_URL}}` — the app derives host/port/password from it |
    | `NEXUS_SUPABASE_URL` | Optional — enables Supabase Auth (see below) |
    | `NEXUS_LLM_API_KEY` | Optional — leave empty for grounded (data-only) Copilot answers |
+   | `NEXUS_LLM_MODEL` | Required once a key is set; there is no default on purpose ([why](OPERATIONS.md#6-turning-on-the-llm-copilot)) |
 
    `PORT` is injected by the platform automatically, and the app derives its datasource from
    `DATABASE_URL` (or the discrete `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` form) and
@@ -127,9 +130,14 @@ context) and provide the same environment variables.
 > lives in the dashboard as above. The Dockerfile is auto-detected because it sits at the root
 > of the service's source directory.
 
-### Live URL
+### Live deployment
 
-- Production frontend: **https://nexus-2-0-omega.vercel.app**
+- Frontend: **https://nexus-2-0-omega.vercel.app**
+- Backend API: **https://nexus20-production.up.railway.app** (health: `/api/health`)
+
+Both deploy automatically on every push to `main`. [`OPERATIONS.md`](OPERATIONS.md) covers the
+release procedure, how to verify one, how to roll one back, and what to check when something is
+wrong.
 
 ---
 
@@ -185,7 +193,7 @@ backend/             Spring Boot API
   src/main/java/com/nexus/backend/chat/      chat WebSocket + per-user delivery
   src/main/java/com/nexus/backend/whiteboard/ WebSocket + Redis fan-out
   src/main/java/com/nexus/backend/security/   JWT filter + optional Supabase token verifier
-  src/main/resources/db/migration/           Flyway migrations V1–V9
+  src/main/resources/db/migration/           Flyway migrations V1–V12
   src/test/java/                             service unit tests
 docker-compose.yml   Postgres + Redis + backend
 (no Railway config file — see "Backend → Railway" below)
@@ -202,12 +210,16 @@ PRD.md               product requirements and delivery history
 # Backend: compiles and runs the unit test suite inside Docker
 docker build --target test ./backend
 
-# Frontend: typecheck, lint and production build
-cd frontend && npx tsc -b && npm run lint && npm run build
+# Frontend: lint, component/store tests, then typecheck + production build
+cd frontend && npm run lint && npm test && npm run build
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs both on every push and pull
-request to `main`, and additionally verifies that the backend runtime image builds cleanly.
+`npm test` runs the Vitest suite (`src/**/*.test.ts(x)`); `npm run build` typechecks with `tsc -b`
+before bundling. Frontend tests use the store directly — the API client is mocked per test — so no
+database or backend is needed.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same four steps on every push
+and pull request to `main`, and additionally verifies that the backend runtime image builds cleanly.
 
 ---
 
