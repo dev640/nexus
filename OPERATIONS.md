@@ -26,7 +26,7 @@ Public endpoints, all unauthenticated:
 |------|---------|--------|
 | `GET /api/health` | `{"status":"ok"}` | the app is up and Spring MVC is routing. It is a **static handler** — it does not touch Postgres or Redis |
 | `GET /actuator/health` | `{"status":"UP","groups":[…]}` | the app plus its dependency indicators (datasource, Redis). Component details are hidden from anonymous callers |
-| `GET /actuator/info` | build info | which build is live |
+| `GET /actuator/info` | `{}` | nothing useful — no build-info contributor is configured. Identify a running build from the Railway deploy log and the Vercel deployment commit instead |
 
 The backend is a **long-running container, not a serverless function** — that is what keeps
 `/ws/chat` and `/ws/whiteboard` connected. Both WebSocket paths are open at the handshake and
@@ -65,27 +65,40 @@ trigger one from the dashboard if the service does not redeploy by itself.
 API=https://nexus20-production.up.railway.app
 WEB=https://nexus-2-0-omega.vercel.app
 
-# 1. App up, and dependencies too (the deep check)
+# 1. App up, and dependencies too (the deep check) — no credentials needed
 curl -fsS $API/api/health      # {"status":"ok"}
 curl -fsS $API/actuator/health # {"status":"UP",...}  ← fails if Postgres/Redis are unreachable
 
-# 2. Auth round trip: sign in, then read the caller
-TOKEN=$(curl -fsS -X POST $API/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"devendra@nexus.com","password":"password123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
-curl -fsS $API/api/users/me -H "Authorization: Bearer $TOKEN"
-
-# 3. Workspace loads (empty collections are fine; a 500 is not)
-curl -fsS $API/api/projects -H "Authorization: Bearer $TOKEN"
-
-# 4. Frontend serves the SPA and rewrites deep client routes
+# 2. Frontend serves the SPA and rewrites deep client routes
 curl -fsS -o /dev/null -w '%{http_code}\n' $WEB/          # 200
 curl -fsS -o /dev/null -w '%{http_code}\n' $WEB/projects   # 200 (rewrite, not a 404)
 ```
 
-The seeded password above only applies while Supabase auth is off. Once Supabase is configured,
-accounts authenticate through Supabase and passwords are issued from **Admin → Create an account**
-or **Admin → Password requests**.
+Steps 1 and 2 are credential-free and always work. The authenticated half of the check depends on
+which auth provider the deployment is using, so pick the matching one:
+
+```bash
+# 3a. Built-in auth (Supabase NOT configured) — sign in, read the caller, load the workspace
+TOKEN=$(curl -fsS -X POST $API/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"devendra@nexus.com","password":"password123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+curl -fsS $API/api/users/me   -H "Authorization: Bearer $TOKEN"
+curl -fsS $API/api/projects   -H "Authorization: Bearer $TOKEN"   # empty is fine, 500 is not
+
+# 3b. Supabase configured — get a token from Supabase, then use it against the same API
+#      (the anon key is public; it lives in .env.example as VITE_SUPABASE_ANON_KEY)
+TOKEN=$(curl -fsS -X POST https://ktvjotwmpynbjgnqjitg.supabase.co/auth/v1/token?grant_type=password \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" -H 'Content-Type: application/json' \
+  -d '{"email":"devendra@nexus.com","password":"<password set in Supabase>"}' \
+  | node -pe 'JSON.parse(require("fs").readFileSync(0)).access_token')
+curl -fsS $API/api/users/me -H "Authorization: Bearer $TOKEN"
+```
+
+**Step 3a is expected to fail with `400 Invalid email or password` on a Supabase deployment**, and
+that is not a regression: linking an account to Supabase clears its local password hash, so
+`password123` stops working the moment Supabase is turned on. Verify the authenticated layer through
+3b, or in the browser, or issue a local password first from **Admin → Create an account** /
+**Admin → Password requests**.
 
 Then confirm by hand, because no probe covers these:
 
