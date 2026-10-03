@@ -75,6 +75,23 @@ const actions: Record<ActionKeys, true> = {
   resetWorkspace: true,
 }
 
+/**
+ * The state the store was created with, captured before any test mutates the
+ * singleton. Resetting between tests is necessary, but it must not be mistaken
+ * for evidence of what the store's creators declared.
+ */
+const initialSessionFlags = (() => {
+  const s = useAppStore.getState()
+  return {
+    isAuthenticated: s.isAuthenticated,
+    isBootstrapped: s.isBootstrapped,
+    isLoading: s.isLoading,
+    syncError: s.syncError,
+    currentUser: s.currentUser,
+    userRole: s.userRole,
+  }
+})()
+
 describe('useAppStore', () => {
   beforeEach(() => {
     // Each test starts from the same place a browser does on first load: no
@@ -100,11 +117,17 @@ describe('useAppStore', () => {
     // Values each slice owns, so a slice losing its initial state (or never
     // being spread into the composed store) shows up here.
     const state = useAppStore.getState()
-    expect(state.isAuthenticated).toBe(false)
-    expect(state.isBootstrapped).toBe(false)
-    expect(state.isLoading).toBe(false)
-    expect(state.syncError).toBeNull()
-    expect(state.userRole).toBe('MEMBER')
+    // The session flags are asserted against the state the store was *created*
+    // with, not the state beforeEach just wrote — otherwise these would only be
+    // proving that setState works.
+    expect(initialSessionFlags).toEqual({
+      isAuthenticated: false,
+      isBootstrapped: false,
+      isLoading: false,
+      syncError: null,
+      currentUser: null,
+      userRole: 'MEMBER',
+    })
     expect(state.whiteboardConnected).toBe(false)
     expect(state.projects).toEqual([])
     expect(state.tasks).toEqual([])
