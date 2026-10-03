@@ -532,6 +532,11 @@ export async function apiChatSearch(q: string): Promise<ApiChatMessage[]> {
 export interface ApiCopilotAnswer {
   answer: string
   mode: 'llm' | 'grounded'
+  /**
+   * Why the grounded answer was used, or null when the LLM answered. Safe to
+   * display: the backend sends a fixed string, never upstream error text.
+   */
+  reason?: string | null
 }
 
 export async function apiAskCopilot(question: string, projectId?: number): Promise<ApiCopilotAnswer> {

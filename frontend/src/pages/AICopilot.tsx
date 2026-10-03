@@ -66,6 +66,7 @@ export function AICopilot() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [answerMode, setAnswerMode] = useState<'llm' | 'grounded'>('grounded')
+  const [answerReason, setAnswerReason] = useState<string | null>(null)
   const [thinking, setThinking] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -111,6 +112,7 @@ export function AICopilot() {
       // otherwise the same grounded computation, and it has live data.
       const reply = await apiAskCopilot(trimmed)
       setAnswerMode(reply.mode)
+      setAnswerReason(reply.reason ?? null)
       setMessages((prev) => [...prev, { id: baseId + 1, role: 'ai', text: reply.answer }])
     } catch (err) {
       // Safety net: answer locally from the workspace snapshot we already have.
@@ -118,6 +120,8 @@ export function AICopilot() {
         ...prev,
         { id: baseId + 1, role: 'ai', text: buildReply(trimmed, data) },
       ])
+      setAnswerMode('grounded')
+      setAnswerReason('Copilot could not be reached')
       setLoadError(apiErrorMessage(err, 'Copilot is unreachable — answered from cached data'))
     } finally {
       setThinking(false)
@@ -198,7 +202,9 @@ export function AICopilot() {
             <p className="mt-2 text-[11px] text-mute">
               {answerMode === 'llm'
                 ? 'Answered by the configured language model using live workspace data as context.'
-                : 'Answers are computed from live task, sprint and workload data — no external AI service.'}
+                : answerReason
+                  ? `${answerReason} — answering from live task, sprint and workload data instead.`
+                  : 'Answers are computed from live task, sprint and workload data — no external AI service.'}
             </p>
           </div>
         </div>
