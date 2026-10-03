@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { UserAvatar } from '../components/user/UserAvatar'
 import {
   apiCreateUser,
   apiDismissPasswordReset,
@@ -291,11 +292,12 @@ export function Admin() {
             {members.map((m) => (
               <div key={m.id} className="flex items-center justify-between gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[9px] font-medium text-white">
-                    {m.initials}
-                  </div>
+                  <UserAvatar memberId={m.id} name={m.name} initials={m.initials} />
                   <span>
                     {m.name}
+                    {m.employeeCode && (
+                      <span className="ml-2 font-mono text-xs text-mute">{m.employeeCode}</span>
+                    )}
                     {selfMemberId === m.id && (
                       <span className="ml-2 text-xs text-mute">(you)</span>
                     )}

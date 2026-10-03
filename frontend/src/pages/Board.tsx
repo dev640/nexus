@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore'
 import { NewTaskModal } from '../components/task/NewTaskModal'
 import { EditTaskModal } from '../components/task/EditTaskModal'
 import { LabelChips } from '../components/task/LabelChips'
+import { UserAvatar } from '../components/user/UserAvatar'
 
 const columns: { key: TaskStatus; label: string }[] = [
   { key: 'BACKLOG', label: 'Backlog' },
@@ -124,12 +125,12 @@ export function Board() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-mute">{t.storyPoints} pt</span>
                   {assignee && (
-                    <div
-                      title={assignee.name}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[9px] font-medium text-white"
-                    >
-                      {assignee.initials}
-                    </div>
+                    <UserAvatar
+                      memberId={assignee.id}
+                      name={assignee.name}
+                      initials={assignee.initials}
+                      size="xs"
+                    />
                   )}
                 </div>
               </div>
@@ -158,12 +159,12 @@ export function Board() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-mute">{t.storyPoints} pt</span>
                           {assignee && (
-                            <div
-                              title={assignee.name}
-                              className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[9px] font-medium text-white"
-                            >
-                              {assignee.initials}
-                            </div>
+                            <UserAvatar
+                              memberId={assignee.id}
+                              name={assignee.name}
+                              initials={assignee.initials}
+                              size="xs"
+                            />
                           )}
                         </div>
                       </div>

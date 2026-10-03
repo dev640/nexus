@@ -52,6 +52,8 @@ export interface ApiUser {
   name: string
   email: string
   role: ApiUserRole
+  /** Human-facing code (NX-0007). Always present on rows created after V11. */
+  employeeCode?: string | null
 }
 
 export interface ApiProject {
@@ -138,6 +140,23 @@ export async function apiUpdateMe(name: string): Promise<ApiUser> {
 export async function apiUpdateUserRole(id: number, role: ApiUserRole): Promise<ApiUser> {
   const { data } = await api.patch<ApiUser>(`/users/${id}/role`, { role })
   return data
+}
+
+/**
+ * Uploads the signed-in user's avatar. The server re-encodes whatever is sent,
+ * so the client only has to pick a file.
+ *
+ * axios drops the instance Content-Type for FormData and lets the browser add
+ * the multipart boundary, which is why no explicit header is set here.
+ */
+export async function apiUploadAvatar(file: File): Promise<void> {
+  const form = new FormData()
+  form.append('file', file)
+  await api.post('/users/me/avatar', form)
+}
+
+export async function apiDeleteAvatar(): Promise<void> {
+  await api.delete('/users/me/avatar')
 }
 
 export interface ApiCreateUserInput {

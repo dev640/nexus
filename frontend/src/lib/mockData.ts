@@ -14,6 +14,8 @@ export interface Member {
   initials: string
   role: string
   utilization: number
+  /** Human-facing code from the backend (NX-0007), when it has one. */
+  employeeCode?: string
 }
 
 export interface Task {

@@ -3,6 +3,7 @@ import { memberById } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewProjectModal } from '../components/project/NewProjectModal'
 import { NewTaskModal } from '../components/task/NewTaskModal'
+import { UserAvatar } from '../components/user/UserAvatar'
 
 const healthColor: Record<string, string> = {
   ON_TRACK: 'text-success',
@@ -107,13 +108,14 @@ export function Projects() {
                     <div className="mt-1 flex -space-x-2">
                       {teamMembers.map((m) =>
                         m ? (
-                          <div
+                          <UserAvatar
                             key={m.id}
-                            title={m.name}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-ink text-xs font-medium text-white"
-                          >
-                            {m.initials}
-                          </div>
+                            memberId={m.id}
+                            name={m.name}
+                            initials={m.initials}
+                            size="md"
+                            className="h-8 w-8 border-2 border-white text-xs"
+                          />
                         ) : null,
                       )}
                     </div>
