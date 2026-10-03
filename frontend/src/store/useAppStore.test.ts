@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { useAppStore } from './useAppStore'
 
 /**
@@ -76,6 +76,19 @@ const actions: Record<ActionKeys, true> = {
 }
 
 describe('useAppStore', () => {
+  beforeEach(() => {
+    // Each test starts from the same place a browser does on first load: no
+    // session, no stored token, nothing bootstrapped yet.
+    useAppStore.setState({
+      isAuthenticated: false,
+      isBootstrapped: false,
+      isLoading: false,
+      syncError: null,
+      currentUser: null,
+      userRole: 'MEMBER',
+    })
+  })
+
   it('exposes every declared action', () => {
     const state = useAppStore.getState() as unknown as Record<string, unknown>
     for (const key of Object.keys(actions)) {
@@ -107,6 +120,28 @@ describe('useAppStore', () => {
       defaultAssigneeId: '',
       mutedCategories: [],
     })
+  })
+
+  it('resolves the session on first load so an anonymous visitor gets the login screen', async () => {
+    // App.tsx renders nothing until isBootstrapped is true. A browser with no
+    // stored session used to leave it false forever, which blanked the whole
+    // page — the site only worked in a browser that already had a session.
+    await useAppStore.getState().bootstrapFromStoredToken()
+    const state = useAppStore.getState()
+    expect(state.isBootstrapped).toBe(true)
+    expect(state.isAuthenticated).toBe(false)
+  })
+
+  it('keeps the app renderable after signing out', () => {
+    // Signing out is a resolved anonymous session, not an unresolved one: the
+    // bootstrap effect only runs on mount, so leaving isBootstrapped false here
+    // blanked the page with no way to recover.
+    useAppStore.setState({ isAuthenticated: true, isBootstrapped: true })
+    useAppStore.getState().logout()
+    const state = useAppStore.getState()
+    expect(state.isBootstrapped).toBe(true)
+    expect(state.isAuthenticated).toBe(false)
+    expect(state.currentUser).toBeNull()
   })
 
   it('updates one settings field without clobbering the others', () => {

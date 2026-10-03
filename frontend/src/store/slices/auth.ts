@@ -69,7 +69,10 @@ export const createAuthSlice: StateCreator<AppState, [], [], AuthSlice> = (set, 
       isAuthenticated: false,
       currentUser: null,
       userRole: 'MEMBER',
-      isBootstrapped: false,
+      // Signing out leaves a *resolved* anonymous session. The bootstrap effect
+      // in App.tsx runs once on mount, so an unresolved flag here renders nothing
+      // for the rest of the session with no way back.
+      isBootstrapped: true,
       projects: [],
       tasks: [],
       sprints: [],
@@ -83,7 +86,10 @@ export const createAuthSlice: StateCreator<AppState, [], [], AuthSlice> = (set, 
     if (supabaseEnabled && supabase) {
       const { data } = await supabase.auth.getSession()
       if (!data.session) {
-        set({ isAuthenticated: false })
+        // No session is a valid answer, and the answer is final: mark it
+        // resolved so App.tsx renders the public routes. Leaving the flag unset
+        // made every browser without a stored session render a blank page.
+        set({ isAuthenticated: false, isBootstrapped: true })
         return
       }
       try {
@@ -94,11 +100,15 @@ export const createAuthSlice: StateCreator<AppState, [], [], AuthSlice> = (set, 
         // Token not accepted (backend Supabase not configured, user deleted…):
         // sign out so the login screen shows.
         await supabaseSignOut()
-        set({ isAuthenticated: false })
+        set({ isAuthenticated: false, isBootstrapped: true })
       }
       return
     }
-    if (!getStoredToken()) return
+    if (!getStoredToken()) {
+      // Same reasoning as above, for the built-in auth path.
+      set({ isBootstrapped: true })
+      return
+    }
     try {
       // Restore the session profile on reload — loadWorkspace only fills the
       // workspace collections, leaving currentUser null (used by the sidebar,
