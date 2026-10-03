@@ -3,6 +3,7 @@ package com.nexus.backend.web;
 import com.nexus.backend.dto.SprintRequest;
 import com.nexus.backend.dto.SprintResponse;
 import com.nexus.backend.dto.SprintStatusRequest;
+import com.nexus.backend.security.WorkspaceWrite;
 import com.nexus.backend.service.SprintService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,12 +36,14 @@ public class SprintController {
         return ResponseEntity.ok(sprint);
     }
 
+    @WorkspaceWrite
     @PostMapping
     public ResponseEntity<SprintResponse> createSprint(@Valid @RequestBody SprintRequest request) {
         SprintResponse sprint = sprintService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(sprint);
     }
 
+    @WorkspaceWrite
     @PatchMapping("/{id}/status")
     public ResponseEntity<SprintResponse> updateSprintStatus(
         @PathVariable Long id,

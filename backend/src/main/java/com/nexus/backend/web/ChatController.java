@@ -6,6 +6,7 @@ import com.nexus.backend.dto.ChatMessageRequest;
 import com.nexus.backend.dto.ChatMessageResponse;
 import com.nexus.backend.dto.ChatReactionRequest;
 import com.nexus.backend.dto.ChatUnreadResponse;
+import com.nexus.backend.security.WorkspaceWrite;
 import com.nexus.backend.service.ChatService;
 import com.nexus.backend.service.ChatSocketFacade;
 import jakarta.validation.Valid;
@@ -52,11 +53,13 @@ public class ChatController {
         return ResponseEntity.ok(chatService.discoverChannels());
     }
 
+    @WorkspaceWrite
     @PostMapping("/channels")
     public ResponseEntity<ChatChannelResponse> createChannel(@Valid @RequestBody ChatChannelRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(chatService.createChannel(request));
     }
 
+    @WorkspaceWrite
     @PostMapping("/channels/dm/{userId}")
     public ResponseEntity<ChatChannelResponse> openDirectMessage(@PathVariable Long userId) {
         return ResponseEntity.ok(chatService.openDirectMessage(userId));
@@ -73,6 +76,7 @@ public class ChatController {
         return ResponseEntity.noContent().build();
     }
 
+    @WorkspaceWrite
     @PatchMapping("/channels/{id}/topic")
     public ResponseEntity<ChatChannelResponse> updateTopic(
         @PathVariable Long id,
@@ -92,6 +96,7 @@ public class ChatController {
         return ResponseEntity.ok(chatService.messages(id, before, limit));
     }
 
+    @WorkspaceWrite
     @PostMapping("/channels/{id}/messages")
     public ResponseEntity<ChatMessageResponse> postMessage(
         @PathVariable Long id,
@@ -100,6 +105,7 @@ public class ChatController {
         return ResponseEntity.status(HttpStatus.CREATED).body(chatService.postMessage(id, request.body()));
     }
 
+    @WorkspaceWrite
     @PatchMapping("/messages/{id}")
     public ResponseEntity<ChatMessageResponse> editMessage(
         @PathVariable Long id,
@@ -108,12 +114,14 @@ public class ChatController {
         return ResponseEntity.ok(chatService.editMessage(id, request.body()));
     }
 
+    @WorkspaceWrite
     @DeleteMapping("/messages/{id}")
     public ResponseEntity<Void> deleteMessage(@PathVariable Long id) {
         chatService.deleteMessage(id);
         return ResponseEntity.noContent().build();
     }
 
+    @WorkspaceWrite
     @PostMapping("/messages/{id}/reactions")
     public ResponseEntity<ChatMessageResponse> react(
         @PathVariable Long id,

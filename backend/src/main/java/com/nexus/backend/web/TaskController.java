@@ -3,6 +3,7 @@ package com.nexus.backend.web;
 import com.nexus.backend.dto.TaskRequest;
 import com.nexus.backend.dto.TaskResponse;
 import com.nexus.backend.dto.TaskStatusRequest;
+import com.nexus.backend.security.WorkspaceWrite;
 import com.nexus.backend.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,12 +42,14 @@ public class TaskController {
         return ResponseEntity.ok(task);
     }
 
+    @WorkspaceWrite
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request) {
         TaskResponse task = taskService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(task);
     }
 
+    @WorkspaceWrite
     @PutMapping("/{id}")
     public ResponseEntity<TaskResponse> updateTask(
         @PathVariable Long id,
@@ -56,6 +59,7 @@ public class TaskController {
         return ResponseEntity.ok(task);
     }
 
+    @WorkspaceWrite
     @PatchMapping("/{id}/status")
     public ResponseEntity<TaskResponse> updateTaskStatus(
         @PathVariable Long id,
@@ -65,6 +69,7 @@ public class TaskController {
         return ResponseEntity.ok(task);
     }
 
+    @WorkspaceWrite
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         taskService.delete(id);
