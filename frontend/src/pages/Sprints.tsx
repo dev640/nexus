@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { velocity } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewSprintModal } from '../components/sprint/NewSprintModal'
 
@@ -119,8 +118,8 @@ export function Sprints() {
                             <div className="text-2xl font-semibold">{remainingPoints} pts</div>
                           </div>
                           <div>
-                            <div className="mb-1 text-xs uppercase tracking-wide text-mute">Velocity</div>
-                            <div className="text-2xl font-semibold">{velocity}</div>
+                            <div className="mb-1 text-xs uppercase tracking-wide text-mute">Tasks</div>
+                            <div className="text-2xl font-semibold">{sprintTasks.length}</div>
                           </div>
                         </div>
 

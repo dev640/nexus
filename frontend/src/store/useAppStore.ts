@@ -53,7 +53,9 @@ import type {
 const toProjectId = (n: number) => `p-${n}`
 const toSprintId = (n: number) => `s-${n}`
 const toTaskId = (n: number) => `t-${n}`
-const toUserId = (n: number) => `u-${n}`
+// Exported so pages can match a signed-in user against a task's assigneeId
+// without re-deriving the id format.
+export const toUserId = (n: number) => `u-${n}`
 
 function parseId(value: string): number {
   const n = Number(String(value).replace(/^[a-z]+-/, ''))
@@ -90,6 +92,8 @@ function mapTask(t: ApiTask): Task {
     storyPoints: t.storyPoints ?? 0,
     assigneeId: t.assignee ? toUserId(t.assignee.id) : '',
     labels: t.labels ?? [],
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
   }
 }
 
@@ -163,7 +167,7 @@ export interface Notification {
   archived: boolean
 }
 
-function timeAgo(iso: string): string {
+export function timeAgo(iso: string): string {
   const seconds = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
