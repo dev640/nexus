@@ -93,7 +93,14 @@ export function Backlog() {
               <span>
                 <LabelChips labels={t.labels} max={2} />
               </span>
-              <span className="text-xs text-mute">{t.status.replace('_', ' ')}</span>
+              <span className="text-xs text-mute">
+                {t.status.replace('_', ' ')}
+                {t.blocked && (
+                  <span className="ml-1.5 font-medium uppercase tracking-wide text-danger">
+                    blocked
+                  </span>
+                )}
+              </span>
               <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>
                 {t.priority}
               </span>

@@ -17,6 +17,12 @@ public record ChatChannelResponse(
     boolean member,
     Long partnerId,
     String partnerName,
+    /**
+     * Email of whoever created the channel. Exposed so the client can offer
+     * "delete channel" only to the creator or an admin, instead of showing a
+     * button that is guaranteed to be refused.
+     */
+    String createdBy,
     LocalDateTime createdAt
 ) {
     public static ChatChannelResponse of(ChatChannel c, boolean member, Long partnerId, String partnerName) {
@@ -28,6 +34,7 @@ public record ChatChannelResponse(
             member,
             partnerId,
             partnerName,
+            c.getCreatedBy(),
             c.getCreatedAt()
         );
     }

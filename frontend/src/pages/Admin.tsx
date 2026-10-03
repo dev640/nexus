@@ -26,10 +26,12 @@ export function Admin() {
   const members = useAppStore((s) => s.members)
   const currentUser = useAppStore((s) => s.currentUser)
   const changeUserRole = useAppStore((s) => s.changeUserRole)
+  const removeMember = useAppStore((s) => s.removeMember)
   const loadWorkspace = useAppStore((s) => s.loadWorkspace)
 
   const [error, setError] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
 
   // Create user
   const [newName, setNewName] = useState('')
@@ -63,6 +65,19 @@ export function Admin() {
     const result = await changeUserRole(memberId, role)
     setPendingId(null)
     if (!result.ok) setError(result.error ?? 'Failed to change role')
+  }
+
+  /**
+   * Removing an account is permanent and takes their work with them: tasks
+   * become unassigned rather than deleted, but the person is gone for good.
+   */
+  async function handleRemove(memberId: string) {
+    setError('')
+    setPendingId(memberId)
+    const result = await removeMember(memberId)
+    setPendingId(null)
+    setConfirmRemoveId(null)
+    if (!result.ok) setError(result.error ?? 'Failed to remove member')
   }
 
   async function handleCreateUser(e: React.FormEvent) {
@@ -303,19 +318,57 @@ export function Admin() {
                     )}
                   </span>
                 </div>
-                <select
-                  value={m.role}
-                  disabled={pendingId === m.id}
-                  onChange={(e) => void handleRoleChange(m.id, e.target.value as ApiUserRole)}
-                  className="rounded-md border border-line px-2 py-1 text-xs outline-none focus:border-ink disabled:opacity-50"
-                  aria-label={`Role for ${m.name}`}
-                >
-                  {assignableRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  {confirmRemoveId === m.id ? (
+                    <>
+                      <span className="text-xs text-danger">
+                        Remove {m.name} permanently?
+                      </span>
+                      <button
+                        onClick={() => setConfirmRemoveId(null)}
+                        disabled={pendingId === m.id}
+                        className="rounded-md border border-line px-2 py-1 text-xs hover:bg-paper"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => void handleRemove(m.id)}
+                        disabled={pendingId === m.id}
+                        className="rounded-md bg-danger px-2 py-1 text-xs font-medium text-white hover:opacity-90"
+                      >
+                        {pendingId === m.id ? 'Removing…' : 'Remove'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Never offer to delete yourself: the server refuses, and
+                          being signed into an account that no longer exists has
+                          no way back. */}
+                      {selfMemberId !== m.id && (
+                        <button
+                          onClick={() => setConfirmRemoveId(m.id)}
+                          disabled={pendingId === m.id}
+                          className="rounded-md border border-line px-2 py-1 text-xs text-danger hover:bg-paper disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                      <select
+                        value={m.role}
+                        disabled={pendingId === m.id}
+                        onChange={(e) => void handleRoleChange(m.id, e.target.value as ApiUserRole)}
+                        className="rounded-md border border-line px-2 py-1 text-xs outline-none focus:border-ink disabled:opacity-50"
+                        aria-label={`Role for ${m.name}`}
+                      >
+                        {assignableRoles.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

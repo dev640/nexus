@@ -36,6 +36,7 @@ export function EditTaskModal({
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM')
   const [storyPoints, setStoryPoints] = useState(0)
   const [assigneeId, setAssigneeId] = useState('')
+  const [blocked, setBlocked] = useState(false)
   const [error, setError] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,6 +54,7 @@ export function EditTaskModal({
     setPriority(task.priority)
     setStoryPoints(task.storyPoints)
     setAssigneeId(task.assigneeId)
+    setBlocked(task.blocked ?? false)
     setError('')
     setConfirmingDelete(false)
     setSaving(false)
@@ -99,6 +101,7 @@ export function EditTaskModal({
       storyPoints,
       assigneeId,
       labels: parseLabels(labelsInput),
+      blocked,
     })
     setSaving(false)
     if (!result.ok) {
@@ -252,6 +255,21 @@ export function EditTaskModal({
             </select>
           </div>
         </div>
+
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={blocked}
+            onChange={(e) => setBlocked(e.target.checked)}
+            className="h-4 w-4 accent-danger"
+          />
+          Blocked
+          {/* Blocked is a flag, not a status: a blocked task is still IN_PROGRESS
+              or TODO, and the two answers are different questions. */}
+          <span className="text-xs text-mute">
+            waiting on something — status stays as it is
+          </span>
+        </label>
 
         {error && <p className="text-xs text-danger">{error}</p>}
 

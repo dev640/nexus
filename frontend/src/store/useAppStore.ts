@@ -4,7 +4,10 @@ import {
   apiCreateProject,
   apiCreateSprint,
   apiCreateTask,
+  apiDeleteProject,
+  apiDeleteSprint,
   apiDeleteTask,
+  apiDeleteUser,
   apiErrorMessage,
   apiListProjects,
   apiListSprints,
@@ -12,6 +15,8 @@ import {
   apiListUsers,
   apiLogin,
   apiUpdateMe,
+  apiUpdateProject,
+  apiUpdateSprint,
   apiUpdateSprintStatus,
   apiUpdateTask,
   apiUpdateTaskStatus,
@@ -22,6 +27,7 @@ import {
   apiListWikiPages,
   apiListNotifications,
   type ApiTask,
+  type ApiProjectStatus,
   apiMarkNotificationRead,
   apiMarkAllNotificationsRead,
   apiArchiveNotification,
@@ -110,6 +116,7 @@ function mapTask(t: ApiTask): Task {
     storyPoints: t.storyPoints ?? 0,
     assigneeId: t.assignee ? toUserId(t.assignee.id) : '',
     labels: t.labels ?? [],
+    blocked: t.blocked ?? false,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   }
@@ -236,11 +243,34 @@ interface TaskEditInput {
   storyPoints: number
   assigneeId: string
   labels?: string[]
+  /** Undefined leaves the current value alone. */
+  blocked?: boolean
 }
 
 export interface TaskResult {
   ok: boolean
   error?: string
+}
+
+/** Fields editable on an existing project. projectId itself never changes. */
+export interface ProjectEditInput {
+  name: string
+  description?: string | null
+  status?: ApiProjectStatus
+}
+
+/**
+ * Fields editable on an existing sprint. projectId is sent but must match the
+ * sprint's current project — the backend refuses to move a sprint, because that
+ * would orphan its tasks and renumber the target project's sequence.
+ */
+export interface SprintEditInput {
+  projectId: string
+  goal: string
+  startDate: string
+  endDate: string
+  committedPoints?: number
+  status?: SprintStatus
 }
 
 interface NewSprintInput {
@@ -326,10 +356,17 @@ interface AppState {
 
   // Projects
   addProject: (input: NewProjectInput) => Promise<Project | null>
+  updateProject: (id: string, input: ProjectEditInput) => Promise<TaskResult>
+  deleteProject: (id: string) => Promise<TaskResult>
 
   // Sprints
   addSprint: (input: NewSprintInput) => Promise<Sprint | null>
   setSprintStatus: (sprintId: string, status: SprintStatus) => void
+  updateSprint: (id: string, input: SprintEditInput) => Promise<TaskResult>
+  deleteSprint: (id: string) => Promise<TaskResult>
+
+  // Members
+  removeMember: (memberId: string) => Promise<TaskResult>
 
   // Whiteboard (API-backed + live socket since Phase 6)
   loadStickyNotes: () => Promise<void>
@@ -574,8 +611,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         storyPoints: input.storyPoints,
         assigneeId: input.assigneeId ? parseId(input.assigneeId) : null,
         labels: input.labels ?? existing.labels,
+        blocked: input.blocked ?? existing.blocked,
       })
-      const task = { ...mapTask(updated), aiGenerated: existing.aiGenerated, blocked: existing.blocked }
+      const task = { ...mapTask(updated), aiGenerated: existing.aiGenerated }
       set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? task : t)), syncError: null }))
       return { ok: true }
     } catch (err) {
@@ -631,6 +669,55 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
   },
 
+  updateProject: async (id, input) => {
+    try {
+      const updated = await apiUpdateProject(parseId(id), {
+        name: input.name,
+        description: input.description,
+        status: input.status,
+      })
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name: updated.name,
+                description: updated.description ?? '',
+                status: updated.status,
+                health: updated.health,
+                progress: updated.progress,
+              }
+            : p,
+        ),
+        syncError: null,
+      }))
+      return { ok: true }
+    } catch (err) {
+      set({ syncError: apiErrorMessage(err, 'Failed to update project') })
+      return { ok: false, error: apiErrorMessage(err, 'Failed to update project') }
+    }
+  },
+
+  deleteProject: async (id) => {
+    try {
+      await apiDeleteProject(parseId(id))
+      // Sprints and tasks belonging to the project go with it, so leaving them
+      // in local state would leave rows pointing at something that no longer
+      // exists.
+      set((state) => ({
+        projects: state.projects.filter((p) => p.id !== id),
+        sprints: state.sprints.filter((s) => s.projectId !== id),
+        tasks: state.tasks.filter((t) => t.projectId !== id),
+        syncError: null,
+      }))
+      return { ok: true }
+    } catch (err) {
+      const error = apiErrorMessage(err, 'Failed to delete project')
+      set({ syncError: error })
+      return { ok: false, error }
+    }
+  },
+
   // ---------------- Sprints ----------------
 
   addSprint: async (input) => {
@@ -674,6 +761,77 @@ export const useAppStore = create<AppState>()((set, get) => ({
     apiUpdateSprintStatus(parseId(sprintId), status).catch((err) => {
       set({ sprints: previous, syncError: apiErrorMessage(err, 'Failed to update sprint') })
     })
+  },
+
+  updateSprint: async (id, input) => {
+    try {
+      const updated = await apiUpdateSprint(parseId(id), {
+        projectId: parseId(input.projectId),
+        goal: input.goal,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        committedPoints: input.committedPoints,
+        status: input.status,
+      })
+      set((state) => ({
+        sprints: state.sprints.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                goal: updated.goal,
+                startDate: updated.startDate,
+                endDate: updated.endDate,
+                committedPoints: updated.committedPoints,
+                status: updated.status,
+              }
+            : s,
+        ),
+        syncError: null,
+      }))
+      return { ok: true }
+    } catch (err) {
+      const error = apiErrorMessage(err, 'Failed to update sprint')
+      set({ syncError: error })
+      return { ok: false, error }
+    }
+  },
+
+  deleteSprint: async (id) => {
+    try {
+      await apiDeleteSprint(parseId(id))
+      set((state) => ({ sprints: state.sprints.filter((s) => s.id !== id), syncError: null }))
+      return { ok: true }
+    } catch (err) {
+      // The backend refuses while the sprint holds tasks, and says how many —
+      // surface that rather than a generic failure.
+      const error = apiErrorMessage(err, 'Failed to delete sprint')
+      set({ syncError: error })
+      return { ok: false, error }
+    }
+  },
+
+  // ---------------- Members ----------------
+
+  removeMember: async (memberId) => {
+    try {
+      await apiDeleteUser(parseId(memberId))
+      set((state) => ({
+        members: state.members.filter((m) => m.id !== memberId),
+        // Their tasks stay, but become unassigned rather than pointing at an
+        // assignee that no longer exists.
+        tasks: state.tasks.map((t) => (t.assigneeId === memberId ? { ...t, assigneeId: '' } : t)),
+        teams: state.teams.map((team) => ({
+          ...team,
+          memberIds: team.memberIds.filter((m) => m !== memberId),
+        })),
+        syncError: null,
+      }))
+      return { ok: true }
+    } catch (err) {
+      const error = apiErrorMessage(err, 'Failed to remove member')
+      set({ syncError: error })
+      return { ok: false, error }
+    }
   },
 
   // ---------------- Whiteboard (API-backed + live socket) ----------------

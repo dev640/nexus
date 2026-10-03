@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { NewSprintModal } from '../components/sprint/NewSprintModal'
+import { EditSprintModal } from '../components/sprint/EditSprintModal'
 
 const statusLabel: Record<string, string> = {
   PLANNED: 'Planned',
@@ -21,6 +22,7 @@ export function Sprints() {
   const canWrite = useAppStore((s) => s.currentUser?.role !== 'VIEWER')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalProjectId, setModalProjectId] = useState<string | undefined>(undefined)
+  const [editingSprintId, setEditingSprintId] = useState<string | null>(null)
   const projects = useAppStore((s) => s.projects)
 
   function openNewSprint(projectId?: string) {
@@ -92,17 +94,28 @@ export function Sprints() {
                           <div className="text-xs font-semibold uppercase tracking-widest text-mute">
                             Sprint {sprint.number}
                           </div>
-                          <select
-                            value={sprint.status}
-                            onChange={(e) => setSprintStatus(sprint.id, e.target.value as typeof sprint.status)}
-                            className={`rounded border border-line bg-paper px-2 py-1 text-xs font-medium outline-none ${statusColor[sprint.status]}`}
-                          >
-                            {Object.entries(statusLabel).map(([key, label]) => (
-                              <option key={key} value={key}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex items-center gap-2">
+                            {canWrite && (
+                              <button
+                                onClick={() => setEditingSprintId(sprint.id)}
+                                className="shrink-0 rounded border border-line px-2 py-1 text-xs font-medium hover:bg-paper"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            <select
+                              value={sprint.status}
+                              onChange={(e) => setSprintStatus(sprint.id, e.target.value as typeof sprint.status)}
+                              disabled={!canWrite}
+                              className={`rounded border border-line bg-paper px-2 py-1 text-xs font-medium outline-none ${statusColor[sprint.status]}`}
+                            >
+                              {Object.entries(statusLabel).map(([key, label]) => (
+                                <option key={key} value={key}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                         <h3 className="mt-2 text-2xl font-semibold tracking-tight">{sprint.goal}</h3>
                         <p className="mt-2 text-sm text-mute">
@@ -154,6 +167,11 @@ export function Sprints() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         defaultProjectId={modalProjectId}
+      />
+      <EditSprintModal
+        key={editingSprintId}
+        sprintId={editingSprintId}
+        onClose={() => setEditingSprintId(null)}
       />
     </div>
   )

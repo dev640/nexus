@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { memberById } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewProjectModal } from '../components/project/NewProjectModal'
+import { EditProjectModal } from '../components/project/EditProjectModal'
 import { NewTaskModal } from '../components/task/NewTaskModal'
 import { UserAvatar } from '../components/user/UserAvatar'
 
@@ -25,6 +26,7 @@ export function Projects() {
   // so the page shows no controls that would fail.
   const canWrite = useAppStore((s) => s.currentUser?.role !== 'VIEWER')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [taskProjectId, setTaskProjectId] = useState<string | undefined>(undefined)
 
@@ -64,12 +66,20 @@ export function Projects() {
                 Project {String(i + 1).padStart(2, '0')}
               </div>
               {canWrite ? (
-                <button
-                  onClick={() => openNewTask(project.id)}
-                  className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
-                >
-                  + Add Task
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => setEditingProjectId(project.id)}
+                    className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => openNewTask(project.id)}
+                    className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
+                  >
+                    + Add Task
+                  </button>
+                </div>
               ) : (
                 <span className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-mute">+ Add Task</span>
               )}
@@ -131,6 +141,11 @@ export function Projects() {
       </div>
 
       <NewProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <EditProjectModal
+        key={editingProjectId}
+        projectId={editingProjectId}
+        onClose={() => setEditingProjectId(null)}
+      />
       <NewTaskModal
         open={taskModalOpen}
         onClose={() => setTaskModalOpen(false)}

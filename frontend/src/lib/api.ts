@@ -95,6 +95,8 @@ export interface ApiTask {
   storyPoints: number
   assignee: ApiUser | null
   labels: string[]
+  /** Waiting on something. Independent of status. */
+  blocked: boolean
   createdAt: string
   updatedAt: string
 }
@@ -157,6 +159,15 @@ export async function apiUploadAvatar(file: File): Promise<void> {
 
 export async function apiDeleteAvatar(): Promise<void> {
   await api.delete('/users/me/avatar')
+}
+
+/**
+ * Permanently removes an account. ADMIN-only. The backend refuses self-deletion
+ * and refuses to remove the last admin, so neither mistake can lock the
+ * workspace out of its own management.
+ */
+export async function apiDeleteUser(id: number): Promise<void> {
+  await api.delete(`/users/${id}`)
 }
 
 export interface ApiCreateUserInput {
@@ -231,6 +242,15 @@ export async function apiCreateProject(input: ApiProjectInput): Promise<ApiProje
   return data
 }
 
+export async function apiUpdateProject(id: number, input: ApiProjectInput): Promise<ApiProject> {
+  const { data } = await api.put<ApiProject>(`/projects/${id}`, input)
+  return data
+}
+
+export async function apiDeleteProject(id: number): Promise<void> {
+  await api.delete(`/projects/${id}`)
+}
+
 // ---------- Sprints ----------
 
 export async function apiListSprints(projectId?: number): Promise<ApiSprint[]> {
@@ -246,11 +266,26 @@ export interface ApiSprintInput {
   startDate: string
   endDate: string
   committedPoints?: number
+  status?: ApiSprintStatus
 }
 
 export async function apiCreateSprint(input: ApiSprintInput): Promise<ApiSprint> {
   const { data } = await api.post<ApiSprint>('/sprints', input)
   return data
+}
+
+/**
+ * projectId must match the sprint's current project: the backend refuses to
+ * move a sprint because that would orphan its tasks and renumber the target
+ * project's sprint sequence.
+ */
+export async function apiUpdateSprint(id: number, input: ApiSprintInput): Promise<ApiSprint> {
+  const { data } = await api.put<ApiSprint>(`/sprints/${id}`, input)
+  return data
+}
+
+export async function apiDeleteSprint(id: number): Promise<void> {
+  await api.delete(`/sprints/${id}`)
 }
 
 export async function apiUpdateSprintStatus(id: number, status: ApiSprintStatus): Promise<ApiSprint> {
@@ -275,6 +310,8 @@ export interface ApiTaskInput {
   storyPoints?: number
   assigneeId?: number | null
   labels?: string[]
+  /** Waiting on something. Omit on update to leave the current value alone. */
+  blocked?: boolean
 }
 
 export async function apiCreateTask(input: ApiTaskInput): Promise<ApiTask> {
@@ -439,6 +476,8 @@ export interface ApiChatChannel {
   member: boolean
   partnerId: number | null
   partnerName: string | null
+  /** Email of the creator. Channels are deletable by the creator or an admin. */
+  createdBy: string | null
   createdAt: string
 }
 
@@ -485,6 +524,15 @@ export async function apiChatJoinChannel(id: number): Promise<ApiChatChannel> {
 
 export async function apiChatLeaveChannel(id: number): Promise<void> {
   await api.post(`/chat/channels/${id}/leave`)
+}
+
+/**
+ * Deletes a channel and its history. Creator or admin only, and direct messages
+ * are refused: two people share a DM, so deleting it would destroy the other
+ * person's history too.
+ */
+export async function apiChatDeleteChannel(id: number): Promise<void> {
+  await api.delete(`/chat/channels/${id}`)
 }
 
 export async function apiChatMessages(id: number, before?: number): Promise<ApiChatMessage[]> {

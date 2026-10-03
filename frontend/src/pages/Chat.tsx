@@ -19,6 +19,7 @@ import {
   apiChatEditMessage,
   apiChatJoinChannel,
   apiChatLeaveChannel,
+  apiChatDeleteChannel,
   apiChatMarkRead,
   apiChatMessages,
   apiChatOpenDm,
@@ -50,6 +51,7 @@ export function ChatPage() {
   // VIEWER is read-only: the backend rejects chat writes with 403, so a
   // viewer can read every channel they belong to but cannot post.
   const canWrite = useAppStore((s) => s.currentUser?.role !== 'VIEWER')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [users, setUsers] = useState<ApiUser[]>([])
 
   const [channels, setChannels] = useState<ApiChatChannel[]>([])
@@ -268,6 +270,22 @@ export function ChatPage() {
     }
   }
 
+  /**
+   * Deletes a channel and its whole history. The server restricts this to the
+   * creator or an admin and refuses direct messages outright — two people share
+   * a DM, so deleting it would destroy the other person's history too.
+   */
+  async function removeChannel(channelId: number) {
+    try {
+      await apiChatDeleteChannel(channelId)
+      if (activeId === channelId) setActiveId(null)
+      setConfirmDeleteId(null)
+      await loadChannels()
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not delete channel'))
+    }
+  }
+
   async function create() {
     const name = newName.trim()
     if (!name) return
@@ -451,7 +469,38 @@ export function ChatPage() {
                   {active.topic && <p className="truncate text-xs text-mute">{active.topic}</p>}
                 </div>
                 {active.type !== 'DM' && (
-                  <button onClick={() => void leave(active.id)} className="text-xs text-mute hover:text-ink">Leave</button>
+                  <div className="flex items-center gap-3">
+                    {/* Creator or admin only — matching the server, so the button
+                        is not offered to someone who can only fail. */}
+                    {(currentUser &&
+                      (active.createdBy === currentUser.email || currentUser.role === 'ADMIN')) && (
+                      confirmDeleteId === active.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-danger">Delete #{active.name} and all messages?</span>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-xs text-mute hover:text-ink"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => void removeChannel(active.id)}
+                            className="text-xs font-medium text-danger hover:opacity-80"
+                          >
+                            Delete
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(active.id)}
+                          className="text-xs text-mute hover:text-danger"
+                        >
+                          Delete
+                        </button>
+                      )
+                    )}
+                    <button onClick={() => void leave(active.id)} className="text-xs text-mute hover:text-ink">Leave</button>
+                  </div>
                 )}
               </header>
 
