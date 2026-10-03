@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -301,5 +303,57 @@ class ChatServiceTest {
         Notification saved = captor.getValue();
         assertThat(saved.getCategory()).isEqualTo(Notification.Category.MENTIONS);
         assertThat(saved.getRecipient().getId()).isEqualTo(2L);
+    }
+
+    // ---------- channel deletion ----------
+
+    /**
+     * The children are removed explicitly, in this order, before the channel.
+     *
+     * <p>This is a regression guard, not a description: the first
+     * implementation leaned on the table's ON DELETE CASCADE and returned an
+     * opaque 500 on every attempt, including on a freshly created channel. A
+     * unit test with mocked repositories cannot see a database constraint, so it
+     * cannot prove the cascade exists — but it does pin that we ask for the
+     * child deletes explicitly and that we ask before the parent.
+     */
+    @Test
+    void deletingAChannelRemovesItsMessagesAndMembersFirst() {
+        ChatChannel general = channel(7L, "general", ChatChannel.Type.PUBLIC);
+        when(channelRepository.findById(7L)).thenReturn(Optional.of(general));
+
+        chatService.deleteChannel(7L);
+
+        InOrder inOrder = org.mockito.Mockito.inOrder(messageRepository, memberRepository, channelRepository);
+        inOrder.verify(messageRepository).deleteAllInChannel(7L);
+        inOrder.verify(memberRepository).deleteAllInChannel(7L);
+        inOrder.verify(channelRepository).delete(general);
+    }
+
+    @Test
+    void anyoneWhoIsNotTheCreatorOrAnAdminCannotDeleteAChannel() {
+        me.setRole(com.nexus.backend.domain.user.UserRole.MEMBER);
+        ChatChannel other = channel(8L, "general", ChatChannel.Type.PUBLIC);
+        other.setCreatedBy("someone-else@nexus.com");
+        when(channelRepository.findById(8L)).thenReturn(Optional.of(other));
+
+        assertThatThrownBy(() -> chatService.deleteChannel(8L))
+            .isInstanceOf(ValidationException.class)
+            .hasMessageContaining("creator or an admin");
+
+        verify(channelRepository, org.mockito.Mockito.never()).delete(any(ChatChannel.class));
+    }
+
+    @Test
+    void directMessagesCannotBeDeleted() {
+        ChatChannel dm = channel(9L, null, ChatChannel.Type.DM);
+        dm.setCreatedBy(MY_EMAIL);
+        when(channelRepository.findById(9L)).thenReturn(Optional.of(dm));
+
+        assertThatThrownBy(() -> chatService.deleteChannel(9L))
+            .isInstanceOf(ValidationException.class)
+            .hasMessageContaining("Direct messages");
+
+        verify(messageRepository, org.mockito.Mockito.never()).deleteAllInChannel(anyLong());
     }
 }

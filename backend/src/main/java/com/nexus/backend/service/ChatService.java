@@ -230,6 +230,11 @@ public void deleteChannel(Long channelId) {
     }
 
     String name = channel.getName();
+    // Children first, explicitly. Relying on the ON DELETE CASCADE made this
+    // endpoint fail outright wherever those constraints were absent, with an
+    // opaque 500 and nothing to act on.
+    messageRepository.deleteAllInChannel(channelId);
+    memberRepository.deleteAllInChannel(channelId);
     channelRepository.delete(channel);
     broadcaster.broadcast(event(ChatEvent.CHANNEL_DELETED, channel, null, null, null));
     log.info("Channel #{} deleted by {}", name, me.getEmail());

@@ -4,6 +4,7 @@ import com.nexus.backend.domain.chat.ChatChannel;
 import com.nexus.backend.domain.chat.ChatChannelMember;
 import com.nexus.backend.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,6 +25,15 @@ public interface ChatChannelMemberRepository extends JpaRepository<ChatChannelMe
     List<ChatChannelMember> findByChannel(ChatChannel channel);
 
     List<ChatChannelMember> findByChannelId(Long channelId);
+
+    /**
+     * Removes a channel's membership rows in one statement, before the channel
+     * itself. See {@code ChatMessageRepository#deleteAllInChannel} for why the
+     * children are removed explicitly instead of relying on a cascade.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ChatChannelMember m where m.channel.id = :channelId")
+    void deleteAllInChannel(@Param("channelId") Long channelId);
 
     List<ChatChannelMember> findByChannelAndUserNot(ChatChannel channel, User user);
 
