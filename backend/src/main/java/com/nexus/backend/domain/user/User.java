@@ -40,6 +40,13 @@ public class User {
     @Column(name = "supabase_id", unique = true)
     private java.util.UUID supabaseId;
 
+    /**
+     * Human-facing employee code (NX-0007). Assigned by the database default on
+     * insert, so callers never invent one and it can never collide.
+     */
+    @Column(name = "employee_code", nullable = false, unique = true, length = 20)
+    private String employeeCode;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -79,6 +86,9 @@ public class User {
 
     public java.util.UUID getSupabaseId() { return supabaseId; }
     public void setSupabaseId(java.util.UUID supabaseId) { this.supabaseId = supabaseId; }
+
+    public String getEmployeeCode() { return employeeCode; }
+    public void setEmployeeCode(String employeeCode) { this.employeeCode = employeeCode; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

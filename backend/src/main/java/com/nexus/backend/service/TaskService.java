@@ -188,7 +188,8 @@ public class TaskService {
                 assignee.getName(),
                 assignee.getEmail(),
                 assignee.getRole(),
-                assignee.getSupabaseId() != null ? assignee.getSupabaseId().toString() : null
+                assignee.getSupabaseId() != null ? assignee.getSupabaseId().toString() : null,
+                assignee.getEmployeeCode()
             );
         }
 

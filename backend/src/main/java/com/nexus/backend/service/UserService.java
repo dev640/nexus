@@ -108,7 +108,8 @@ public class UserService {
             user.getName(),
             user.getEmail(),
             user.getRole(),
-            user.getSupabaseId() != null ? user.getSupabaseId().toString() : null
+            user.getSupabaseId() != null ? user.getSupabaseId().toString() : null,
+            user.getEmployeeCode()
         );
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -99,6 +100,23 @@ public class GlobalExceptionHandler {
         if (!(ex.getCause() instanceof InvalidFormatException cause)) return null;
         if (cause.getPath() == null || cause.getPath().isEmpty()) return null;
         return cause.getPath().get(cause.getPath().size() - 1).getFieldName();
+    }
+
+    /**
+     * An oversized upload is rejected by the servlet container before any handler
+     * runs. That is the caller's mistake, not a server fault, so it is a 400
+     * with the same wording the service uses for its own size check — otherwise
+     * an upload just over the limit would 500 and a much larger one would 400
+     * with two different messages for one rule.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        ErrorResponse error = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            "Avatar must be smaller than 256 KB",
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(Exception.class)

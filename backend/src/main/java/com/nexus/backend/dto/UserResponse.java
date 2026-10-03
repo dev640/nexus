@@ -7,5 +7,7 @@ public record UserResponse(
     String name,
     String email,
     UserRole role,
-    String supabaseId
+    String supabaseId,
+    /** Human-facing employee code (NX-0007). Avatar bytes are never sent. */
+    String employeeCode
 ) {}
