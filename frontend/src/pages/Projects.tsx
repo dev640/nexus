@@ -20,6 +20,9 @@ export function Projects() {
   const projects = useAppStore((s) => s.projects)
   const teams = useAppStore((s) => s.teams)
   const members = useAppStore((s) => s.members)
+  // VIEWER is read-only: the backend rejects project and task writes with 403,
+  // so the page shows no controls that would fail.
+  const canWrite = useAppStore((s) => s.currentUser?.role !== 'VIEWER')
   const [modalOpen, setModalOpen] = useState(false)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [taskProjectId, setTaskProjectId] = useState<string | undefined>(undefined)
@@ -35,12 +38,16 @@ export function Projects() {
         <div className="text-xs font-medium uppercase tracking-widest text-mute">
           Workspace
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black"
-        >
-          + New Project
-        </button>
+        {canWrite ? (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-black"
+          >
+            + New Project
+          </button>
+        ) : (
+          <span className="rounded-md bg-mute px-4 py-2 text-sm font-medium text-mute">+ New Project</span>
+        )}
       </div>
       <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">Projects</h1>
 
@@ -55,12 +62,16 @@ export function Projects() {
               <div className="text-xs font-semibold uppercase tracking-widest text-mute">
                 Project {String(i + 1).padStart(2, '0')}
               </div>
-              <button
-                onClick={() => openNewTask(project.id)}
-                className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
-              >
-                + Add Task
-              </button>
+              {canWrite ? (
+                <button
+                  onClick={() => openNewTask(project.id)}
+                  className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-paper"
+                >
+                  + Add Task
+                </button>
+              ) : (
+                <span className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-mute">+ Add Task</span>
+              )}
             </div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{project.name}</h2>
             <p className="mt-2 max-w-xl text-sm text-mute">

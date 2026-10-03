@@ -47,6 +47,9 @@ function timeLabel(iso: string): string {
 
 export function ChatPage() {
   const currentUser = useAppStore((s) => s.currentUser)
+  // VIEWER is read-only: the backend rejects chat writes with 403, so a
+  // viewer can read every channel they belong to but cannot post.
+  const canWrite = useAppStore((s) => s.currentUser?.role !== 'VIEWER')
   const [users, setUsers] = useState<ApiUser[]>([])
 
   const [channels, setChannels] = useState<ApiChatChannel[]>([])
@@ -321,12 +324,14 @@ export function ChatPage() {
             <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-mute'}`} />
             {connected ? 'Live' : 'Reconnecting…'}
           </span>
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
-          >
-            <Plus size={14} /> Channel
-          </button>
+          {canWrite ? (
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+            >
+              <Plus size={14} /> Channel
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -533,6 +538,7 @@ export function ChatPage() {
                 {typingIn && typingIn.channelId === active.id && (
                   <p className="mb-1 text-xs text-mute">{typingIn.name} is typing…</p>
                 )}
+                {canWrite ? (
                 <div className="flex items-end gap-2">
                   <textarea
                     value={draft}
@@ -555,6 +561,11 @@ export function ChatPage() {
                     <Send size={14} /> Send
                   </button>
                 </div>
+                ) : (
+                  <p className="rounded-lg border border-line bg-paper px-3 py-2 text-sm text-mute">
+                    You have read-only access to this conversation.
+                  </p>
+                )}
                 <p className="mt-1 text-[11px] text-mute">
                   <b>@username</b> mentions notify teammates · Enter sends · Shift+Enter for a new line
                 </p>
