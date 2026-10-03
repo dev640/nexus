@@ -94,6 +94,29 @@ export function Home() {
     doneCount,
   )
 
+  // Load = open (not done) story points per member, shown relative to the
+  // busiest teammate so the bars compare people rather than pretend a
+  // percentage of some capacity nobody defined.
+  const busiestPoints = Math.max(
+    0,
+    ...members.map((m) =>
+      tasks
+        .filter((t) => t.assigneeId === m.id && t.status !== 'DONE')
+        .reduce((sum, t) => sum + t.storyPoints, 0),
+    ),
+  )
+  const teamLoad = members.map((m) => {
+    const openPoints = tasks
+      .filter((t) => t.assigneeId === m.id && t.status !== 'DONE')
+      .reduce((sum, t) => sum + t.storyPoints, 0)
+    return {
+      id: m.id,
+      name: m.name,
+      openPoints,
+      pct: busiestPoints > 0 ? Math.min(100, Math.round((openPoints / busiestPoints) * 100)) : 0,
+    }
+  })
+
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 lg:px-16 lg:py-12">
       <div className="mb-1 text-xs font-medium uppercase tracking-widest text-mute">
@@ -186,23 +209,29 @@ export function Home() {
         </section>
 
         <section className="border border-line bg-white p-6">
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-mute">
+          <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-mute">
             Team Load
           </h2>
+          <p className="mb-4 text-xs text-mute">
+            Open story points, relative to the heaviest load.
+          </p>
           {members.length === 0 ? (
             <p className="text-sm text-mute">No members loaded.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {members.map((m) => (
+              {teamLoad.map((m) => (
                 <div key={m.id}>
                   <div className="mb-1 flex justify-between text-sm">
-                    <span>{m.name}</span>
-                    <span className="text-mute">{m.utilization}%</span>
+                    <span>
+                      {m.name}
+                      <span className="ml-2 text-xs text-mute">{m.openPoints} pts open</span>
+                    </span>
+                    <span className="text-mute">{m.pct}%</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-line">
                     <div
-                      className={`h-1.5 rounded-full ${m.utilization > 85 ? 'bg-danger' : 'bg-ink'}`}
-                      style={{ width: `${m.utilization}%` }}
+                      className={`h-1.5 rounded-full ${m.pct > 85 ? 'bg-danger' : 'bg-ink'}`}
+                      style={{ width: `${m.pct}%` }}
                     />
                   </div>
                 </div>
