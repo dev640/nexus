@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../ui/Modal'
 import { useAppStore } from '../../store/useAppStore'
+import { labelsToInput, parseLabels } from '../../lib/labels'
 import type { TaskPriority, TaskStatus } from '../../lib/mockData'
 
 const statuses: TaskStatus[] = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'DONE']
@@ -28,6 +29,7 @@ export function EditTaskModal({
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [labelsInput, setLabelsInput] = useState('')
   const [projectId, setProjectId] = useState('')
   const [sprintId, setSprintId] = useState('')
   const [status, setStatus] = useState<TaskStatus>('BACKLOG')
@@ -44,6 +46,7 @@ export function EditTaskModal({
     if (!task) return
     setTitle(task.title)
     setDescription(task.description ?? '')
+    setLabelsInput(labelsToInput(task.labels))
     setProjectId(task.projectId)
     setSprintId(task.sprintId ?? '')
     setStatus(task.status)
@@ -95,6 +98,7 @@ export function EditTaskModal({
       priority,
       storyPoints,
       assigneeId,
+      labels: parseLabels(labelsInput),
     })
     setSaving(false)
     if (!result.ok) {
@@ -143,6 +147,19 @@ export function EditTaskModal({
           />
           <p className="mt-1 text-xs text-mute">
             Shown on the task card. Leave blank if not needed.
+          </p>
+        </div>
+
+        <div>
+          <label className={fieldLabel}>Labels</label>
+          <input
+            value={labelsInput}
+            onChange={(e) => setLabelsInput(e.target.value)}
+            className={field}
+            placeholder="backend, urgent"
+          />
+          <p className="mt-1 text-xs text-mute">
+            Separate labels with commas. Blank entries are ignored.
           </p>
         </div>
 

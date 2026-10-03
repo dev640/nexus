@@ -3,6 +3,7 @@ import { memberById, type TaskStatus } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewTaskModal } from '../components/task/NewTaskModal'
 import { EditTaskModal } from '../components/task/EditTaskModal'
+import { LabelChips } from '../components/task/LabelChips'
 
 const columns: { key: TaskStatus; label: string }[] = [
   { key: 'BACKLOG', label: 'Backlog' },
@@ -91,6 +92,7 @@ export function Board() {
                           </span>
                         )}
                       </button>
+                      <LabelChips labels={t.labels} max={2} className="mb-2" />
                       <div className="mb-2 flex items-center justify-between">
                         <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>
                           {t.priority}

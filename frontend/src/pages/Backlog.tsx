@@ -3,6 +3,7 @@ import { memberById } from '../lib/mockData'
 import { useAppStore } from '../store/useAppStore'
 import { NewTaskModal } from '../components/task/NewTaskModal'
 import { EditTaskModal } from '../components/task/EditTaskModal'
+import { LabelChips } from '../components/task/LabelChips'
 
 const priorityColor: Record<string, string> = {
   URGENT: 'text-danger',
@@ -65,6 +66,7 @@ export function Backlog() {
                 {t.description && (
                   <span className="truncate text-xs font-normal text-mute">{t.description}</span>
                 )}
+                <LabelChips labels={t.labels} max={2} />
               </button>
               <span className="text-xs text-mute">{t.status.replace('_', ' ')}</span>
               <span className={`text-xs font-medium ${priorityColor[t.priority]}`}>
