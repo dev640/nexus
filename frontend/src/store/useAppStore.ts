@@ -312,11 +312,6 @@ export interface WikiResult {
   error?: string
 }
 
-export interface AuthResult {
-  ok: boolean
-  error?: string
-}
-
 interface AppState {
   // API-backed data
   projects: Project[]
