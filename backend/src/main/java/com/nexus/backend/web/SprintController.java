@@ -52,4 +52,20 @@ public class SprintController {
         SprintResponse sprint = sprintService.updateStatus(id, request.status());
         return ResponseEntity.ok(sprint);
     }
+
+    @WorkspaceWrite
+    @PutMapping("/{id}")
+    public ResponseEntity<SprintResponse> updateSprint(
+        @PathVariable Long id,
+        @Valid @RequestBody SprintRequest request
+    ) {
+        return ResponseEntity.ok(sprintService.update(id, request));
+    }
+
+    @WorkspaceWrite
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSprint(@PathVariable Long id) {
+        sprintService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 }

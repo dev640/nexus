@@ -7,6 +7,7 @@ import com.nexus.backend.domain.chat.ChatChannelMember;
 import com.nexus.backend.domain.chat.ChatMessage;
 import com.nexus.backend.domain.notification.Notification;
 import com.nexus.backend.domain.user.User;
+import com.nexus.backend.domain.user.UserRole;
 import com.nexus.backend.dto.ChatChannelRequest;
 import com.nexus.backend.dto.ChatChannelResponse;
 import com.nexus.backend.dto.ChatEvent;
@@ -206,7 +207,35 @@ public class ChatService {
         return ChatChannelResponse.of(channel, true, null, null);
     }
 
-    // ---------- messages ----------
+    /**
+     * Deletes a channel and everything in it.
+     *
+     * <p>Restricted to the creator or a workspace ADMIN. Members cannot delete a
+     * channel they merely belong to, because a channel is shared history rather
+     * than personal content — leaving is available for that. Direct messages are
+ * *not* deletable this way: two people share that conversation, and deleting it
+     * would silently destroy the other person's history too.
+     */
+@Transactional
+public void deleteChannel(Long channelId) {
+    User me = currentUser();
+    ChatChannel channel = requireChannel(channelId);
+
+    if (channel.getType() == ChatChannel.Type.DM) {
+        throw new ValidationException("Direct messages cannot be deleted");
+    }
+    boolean creator = me.getEmail().equalsIgnoreCase(channel.getCreatedBy());
+    if (!creator && me.getRole() != UserRole.ADMIN) {
+        throw new ValidationException("Only the channel creator or an admin can delete this channel");
+    }
+
+    String name = channel.getName();
+    channelRepository.delete(channel);
+    broadcaster.broadcast(event(ChatEvent.CHANNEL_DELETED, channel, null, null, null));
+    log.info("Channel #{} deleted by {}", name, me.getEmail());
+}
+
+// ---------- messages ----------
 
     /** Newest page (or older history with `before`), returned oldest-first. */
     @Transactional(readOnly = true)

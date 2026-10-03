@@ -19,6 +19,7 @@ import com.nexus.backend.service.TaskService;
 import com.nexus.backend.service.WhiteboardService;
 import com.nexus.backend.service.WikiPageService;
 import com.nexus.backend.service.UserService;
+import com.nexus.backend.service.AvatarService;
 import com.nexus.backend.web.ChatController;
 import com.nexus.backend.web.CopilotController;
 import com.nexus.backend.web.NotificationController;
@@ -27,6 +28,7 @@ import com.nexus.backend.web.SprintController;
 import com.nexus.backend.web.TaskController;
 import com.nexus.backend.web.WhiteboardController;
 import com.nexus.backend.web.WikiPageController;
+import com.nexus.backend.web.UserController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -65,6 +67,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     ChatController.class,
     NotificationController.class,
     CopilotController.class,
+    SprintController.class,
+    UserController.class,
 })
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class ViewerReadOnlySecurityTest {
@@ -93,6 +97,7 @@ class ViewerReadOnlySecurityTest {
     @MockitoBean private ProjectService projectService;
     @MockitoBean private SprintService sprintService;
     @MockitoBean private TaskService taskService;
+    @MockitoBean private AvatarService avatarService;
     @MockitoBean private WhiteboardService whiteboardService;
     @MockitoBean private WikiPageService wikiPageService;
 
@@ -114,13 +119,19 @@ class ViewerReadOnlySecurityTest {
             new NamedRequest("create note", request("POST", "/api/whiteboard/notes").content("{\"color\":\"yellow\"}")),
             new NamedRequest("update note", request("PATCH", "/api/whiteboard/notes/1").content("{\"text\":\"hi\",\"color\":\"blue\"}")),
             new NamedRequest("delete note", request("DELETE", "/api/whiteboard/notes/1")),
+            new NamedRequest("update sprint", request("PUT", "/api/sprints/1").content(SPRINT_BODY)),
+            new NamedRequest("delete sprint", request("DELETE", "/api/sprints/1")),
+            new NamedRequest("delete channel", request("DELETE", "/api/chat/channels/1")),
             new NamedRequest("create channel", request("POST", "/api/chat/channels").content("{\"name\":\"c\"}")),
             new NamedRequest("open dm", request("POST", "/api/chat/channels/dm/1")),
             new NamedRequest("set topic", request("PATCH", "/api/chat/channels/1/topic").content("{\"topic\":\"t\"}")),
             new NamedRequest("post message", request("POST", "/api/chat/channels/1/messages").content("{\"body\":\"hi\"}")),
             new NamedRequest("edit message", request("PATCH", "/api/chat/messages/1").content("{\"body\":\"hi\"}")),
             new NamedRequest("delete message", request("DELETE", "/api/chat/messages/1")),
-            new NamedRequest("react", request("POST", "/api/chat/messages/1/reactions").content("{\"emoji\":\"+1\",\"add\":true}"))
+            new NamedRequest("react", request("POST", "/api/chat/messages/1/reactions").content("{\"emoji\":\"+1\",\"add\":true}")),
+            // ADMIN-only rather than @WorkspaceWrite, so a VIEWER is refused
+            // twice over; swept here so adding it cannot regress either guard.
+            new NamedRequest("delete user", request("DELETE", "/api/users/1"))
         );
     }
 
@@ -138,7 +149,7 @@ class ViewerReadOnlySecurityTest {
     void memberIsNotRejectedByRoleOnTaskWrites() throws Exception {
         TaskResponse response = new TaskResponse(
             1L, "t", null, 1L, "p", null, TaskStatus.DONE, TaskPriority.LOW,
-            3, null, List.of(), LocalDateTime.now(), LocalDateTime.now());
+            3, null, List.of(), false, LocalDateTime.now(), LocalDateTime.now());
         when(taskService.updateStatus(eq(1L), eq(TaskStatus.DONE))).thenReturn(response);
         when(taskService.create(any())).thenReturn(response);
 

@@ -65,6 +65,13 @@ public class ChatController {
         return ResponseEntity.ok(chatService.openDirectMessage(userId));
     }
 
+    @WorkspaceWrite
+    @DeleteMapping("/channels/{id}")
+    public ResponseEntity<Void> deleteChannel(@PathVariable Long id) {
+        chatService.deleteChannel(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/channels/{id}/join")
     public ResponseEntity<ChatChannelResponse> joinChannel(@PathVariable Long id) {
         return ResponseEntity.ok(chatService.joinChannel(id));

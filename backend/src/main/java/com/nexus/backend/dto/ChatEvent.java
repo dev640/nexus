@@ -18,6 +18,7 @@ public record ChatEvent(
     public static final String MESSAGE_DELETED = "message.deleted";
     public static final String REACTIONS_UPDATED = "reactions.updated";
     public static final String CHANNEL_CREATED = "channel.created";
+    public static final String CHANNEL_DELETED = "channel.deleted";
     public static final String TYPING = "typing";
     public static final String PRESENCE = "presence";
 

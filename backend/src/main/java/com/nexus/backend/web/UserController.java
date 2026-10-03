@@ -10,6 +10,7 @@ import com.nexus.backend.exception.ResourceNotFoundException;
 import com.nexus.backend.repository.UserRepository;
 import com.nexus.backend.service.AdminAccountService;
 import com.nexus.backend.service.AvatarService;
+import com.nexus.backend.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -48,15 +49,18 @@ public class UserController {
     private final UserRepository userRepository;
     private final AdminAccountService adminAccountService;
     private final AvatarService avatarService;
+    private final UserService userService;
 
     public UserController(
         UserRepository userRepository,
         AdminAccountService adminAccountService,
-        AvatarService avatarService
+        AvatarService avatarService,
+        UserService userService
     ) {
         this.userRepository = userRepository;
         this.adminAccountService = adminAccountService;
         this.avatarService = avatarService;
+        this.userService = userService;
     }
 
     /**
@@ -155,6 +159,19 @@ public class UserController {
             hex.append(String.format("%02x", digest[i]));
         }
         return hex.append('"').toString();
+    }
+
+    /**
+     * Permanently removes an account. ADMIN-only, and guarded against the two
+     * ways it could lock the workspace out of its own management.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        String actingEmail = org.springframework.security.core.context.SecurityContextHolder
+            .getContext().getAuthentication().getName();
+        userService.delete(id, actingEmail);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/role")

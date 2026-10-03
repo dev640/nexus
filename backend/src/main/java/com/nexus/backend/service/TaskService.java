@@ -63,6 +63,9 @@ public class TaskService {
         }
 
         task.setLabels(request.labels());
+        if (request.blocked() != null) {
+            task.setBlocked(request.blocked());
+        }
 
         Task savedTask = taskRepository.save(task);
         if (savedTask.getAssignee() != null) {
@@ -133,6 +136,10 @@ public class TaskService {
             task.setStoryPoints(request.storyPoints());
         }
         task.setLabels(request.labels() != null ? request.labels() : task.getLabels());
+        // Null keeps the current value; only an explicit false unblocks.
+        if (request.blocked() != null) {
+            task.setBlocked(request.blocked());
+        }
 
         // Notify on a newly added assignee (not on reassignment to the same person)
         User previousAssignee = task.getAssignee();
@@ -211,6 +218,7 @@ public class TaskService {
             task.getStoryPoints(),
             assigneeResponse,
             labels,
+            task.isBlocked(),
             task.getCreatedAt(),
             task.getUpdatedAt()
         );

@@ -106,7 +106,7 @@ class ProjectTaskServiceTest {
     private TaskRequest taskRequest() {
         return new TaskRequest(
             "Write docs", "api docs", 1L, null,
-            TaskStatus.TODO, TaskPriority.LOW, 3, null, List.of("docs"));
+            TaskStatus.TODO, TaskPriority.LOW, 3, null, List.of("docs"), null);
     }
 
     @Test
@@ -116,7 +116,7 @@ class ProjectTaskServiceTest {
 
         var response = taskService.create(new TaskRequest(
             "Write docs", "api docs", 1L, null,
-            TaskStatus.TODO, TaskPriority.LOW, null, null, List.of("docs")));
+            TaskStatus.TODO, TaskPriority.LOW, null, null, List.of("docs"), null));
 
         assertThat(response.projectId()).isEqualTo(1L);
         assertThat(response.projectName()).isEqualTo("Demo");
@@ -129,7 +129,7 @@ class ProjectTaskServiceTest {
         when(projectRepository.findById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> taskService.create(new TaskRequest(
-            "x", null, 404L, null, TaskStatus.TODO, TaskPriority.LOW, 1, null, null)))
+            "x", null, 404L, null, TaskStatus.TODO, TaskPriority.LOW, 1, null, null, null)))
             .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -139,7 +139,7 @@ class ProjectTaskServiceTest {
         when(userRepository.findById(77L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> taskService.create(new TaskRequest(
-            "x", null, 1L, null, TaskStatus.TODO, TaskPriority.LOW, 1, 77L, null)))
+            "x", null, 1L, null, TaskStatus.TODO, TaskPriority.LOW, 1, 77L, null, null)))
             .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -201,7 +201,7 @@ class ProjectTaskServiceTest {
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var response = taskService.update(5L, new TaskRequest(
-            "Moved", "d", 2L, null, TaskStatus.TODO, TaskPriority.HIGH, 5, null, List.of()));
+            "Moved", "d", 2L, null, TaskStatus.TODO, TaskPriority.HIGH, 5, null, List.of(), null));
 
         // projectId was previously ignored, so the task silently stayed put.
         assertThat(response.projectId()).isEqualTo(2L);
@@ -217,7 +217,7 @@ class ProjectTaskServiceTest {
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var response = taskService.update(5L, new TaskRequest(
-            "No points given", null, 1L, null, TaskStatus.TODO, TaskPriority.LOW, null, null, List.of()));
+            "No points given", null, 1L, null, TaskStatus.TODO, TaskPriority.LOW, null, null, List.of(), null));
 
         // story_points is NOT NULL: an omitted field must not null the column.
         assertThat(response.storyPoints()).isEqualTo(8);
@@ -241,7 +241,7 @@ class ProjectTaskServiceTest {
         when(sprintRepository.findById(9L)).thenReturn(Optional.of(foreignSprint));
 
         assertThatThrownBy(() -> taskService.update(5L, new TaskRequest(
-            "Cross project", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of())))
+            "Cross project", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of(), null)))
             .isInstanceOf(com.nexus.backend.exception.ValidationException.class)
             .hasMessageContaining("different project");
     }
@@ -262,7 +262,7 @@ class ProjectTaskServiceTest {
         when(sprintRepository.findById(9L)).thenReturn(Optional.of(foreignSprint));
 
         assertThatThrownBy(() -> taskService.create(new TaskRequest(
-            "x", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of())))
+            "x", null, 1L, 9L, TaskStatus.TODO, TaskPriority.LOW, 1, null, List.of(), null)))
             .isInstanceOf(com.nexus.backend.exception.ValidationException.class);
     }
 

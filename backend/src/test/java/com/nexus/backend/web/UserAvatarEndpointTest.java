@@ -13,6 +13,7 @@ import com.nexus.backend.security.SupabaseTokenVerifier;
 import com.nexus.backend.service.AdminAccountService;
 import com.nexus.backend.service.AvatarService;
 import com.nexus.backend.service.SupabaseUserService;
+import com.nexus.backend.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,6 +76,7 @@ class UserAvatarEndpointTest {
     @MockitoBean private AdminAccountService adminAccountService;
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private UserAvatarRepository avatarRepository;
+    @MockitoBean private UserService userService;
 
     private final AtomicReference<UserAvatar> stored = new AtomicReference<>();
 
