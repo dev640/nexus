@@ -1,0 +1,17 @@
+# Map the historical author identities onto the repository owner.
+#
+# Every commit in this repository was authored as `ferhennn`, under two
+# different addresses. GitHub resolves the noreply address
+# ferhennn@users.noreply.github.com to an unrelated account, so anyone
+# reading this history -- including integrations that derive deployment
+# attribution from commit metadata, such as Vercel -- sees a stranger as the
+# author instead of the person who owns the repository, and Vercel refuses the
+# deployment with "not a member of this team".
+#
+# Rather than rewriting history (which would force-push 105 commits and
+# invalidate every existing SHA), a mailmap re-attribution is declared here.
+# It changes only how identities are *resolved* for display; the underlying
+# commit objects and their hashes are untouched.
+
+dev640 <83763869+dev640@users.noreply.github.com> ferhennn <ferhennn@users.noreply.github.com>
+dev640 <83763869+dev640@users.noreply.github.com> ferhennn <sheikhfarhan2008@gmail.com>
